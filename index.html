@@ -241,7 +241,7 @@ async function updateQuoteStatus(number, status){
 async function loadFacturas(){
   if(!connected) return;
   const rows = await tableGetRows('tblFacturas');
-  db.invoices = rows.map(r=>({
+  db.invoices = rows.filter(r=>r[1]!==null && r[1]!==undefined && r[1]!=='').map(r=>({
     id:r[0], number:Number(r[1]), date:excelValToIso(r[2]), due:excelValToIso(r[3]),
     client:r[4], clientId:r[5], contact:r[6], address:r[7],
     subtotal:Number(r[8])||0, tax:Number(r[9])||0, total:Number(r[10])||0, balance:Number(r[11])||0,
@@ -251,7 +251,7 @@ async function loadFacturas(){
 async function loadCotizaciones(){
   if(!connected) return;
   const rows = await tableGetRows('tblCotizaciones');
-  db.quotes = rows.map(r=>({
+  db.quotes = rows.filter(r=>r[1]!==null && r[1]!==undefined && r[1]!=='').map(r=>({
     id:r[0], number:Number(r[1]), date:excelValToIso(r[2]), due:excelValToIso(r[3]),
     client:r[4], clientId:r[5], contact:r[6], address:r[7],
     subtotal:Number(r[8])||0, tax:Number(r[9])||0, total:Number(r[10])||0,
@@ -260,7 +260,7 @@ async function loadCotizaciones(){
 }
 async function loadItemsFor(table, number){
   const rows = await tableGetRows(table);
-  return rows.filter(r=>Number(r[0])===Number(number)).map(r=>({ code:r[1], desc:r[2], qty:r[3], price:r[4], tax:r[5] }));
+  return rows.filter(r=>r[0]!==null && r[0]!==undefined && r[0]!=='' && Number(r[0])===Number(number)).map(r=>({ code:r[1], desc:r[2], qty:r[3], price:r[4], tax:r[5] }));
 }
 
 /* ==================== UI GENERAL ==================== */
