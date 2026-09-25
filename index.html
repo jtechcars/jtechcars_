@@ -12,8 +12,9 @@
 <div class="app">
 <div class="bar no-print"><div class="connbar">
 <b>JTech & Cars — Sistema de Facturación</b>
-<span id="connStatus">No conectado a Microsoft 365</span>
-<button id="btnConnect" onclick="connect()">Conectar con Microsoft 365</button>
+<span id="connStatus">🔒 Bloqueado</span>
+<button id="btnChangePw" onclick="openChangePw()" style="display:none">Cambiar contraseña</button>
+<button id="btnLogout" onclick="logout()" style="display:none">Cerrar sesión</button>
 </div></div>
 <div class="tabs no-print">
 <button onclick="openDoc('factura')">Nueva factura</button><button onclick="openDoc('cotizacion')">Nueva cotización</button><button onclick="tab('historial')">Historial</button><button onclick="tab('clientes')">Clientes</button><button onclick="tab('productos')">Productos</button><button onclick="backup()">Respaldar (clientes/productos)</button><button onclick="restoreFile()">Restaurar</button>
@@ -67,200 +68,116 @@ Gracias por preferirnos, recuerde seguirnos en <a href="https://www.facebook.com
 </div>
 </div></div>
 
+<div class="modal show" id="lockScreen"><div class="modalbox">
+<h3>🔒 Acceso restringido</h3>
+<p>Ingresa la contraseña para crear o modificar facturas, cotizaciones, clientes y productos.</p>
+<label>Contraseña</label>
+<input type="password" id="lockPassword" onkeydown="if(event.key==='Enter')doLogin()">
+<p id="lockError" style="color:#a00;font-size:13px;min-height:18px"></p>
+<div class="actions">
+<button class="primary" onclick="doLogin()">Entrar</button>
+</div>
+</div></div>
+
+<div class="modal" id="changePwModal"><div class="modalbox">
+<h3>Cambiar contraseña</h3>
+<label>Contraseña actual</label><input type="password" id="pwActual">
+<label>Contraseña nueva (mínimo 6 caracteres)</label><input type="password" id="pwNueva">
+<p id="pwError" style="color:#a00;font-size:13px;min-height:18px"></p>
+<div class="actions">
+<button class="primary" onclick="doChangePw()">Guardar</button>
+<button onclick="closeModal('changePwModal')">Cancelar</button>
+</div>
+</div></div>
+
 <div id="loadingOverlay"><div id="loadingMsg">Cargando…</div></div>
 
-<script src="https://alcdn.msauth.net/browser/2.35.0/js/msal-browser.min.js"></script>
-<script>if(typeof msal==='undefined')document.write(unescape("%3Cscript src='https://alcdn.msftauth.net/browser/2.35.0/js/msal-browser.min.js' type='text/javascript'%3E%3C/script%3E"));</script>
 <script>
-/* ==================== CONFIGURACIÓN ==================== */
-const MSAL_CLIENT_ID = "85f09022-d6b7-479a-b9d4-4bc5b8af40bf";
-const MSAL_TENANT_ID = "264929cb-1ede-4815-bf1b-ae0f54b639d4";
-const GRAPH_SCOPES = ["Files.ReadWrite", "User.Read"];
-const EXCEL_FILE_PATH = "System Invoice/JTechCars_Backend_Facturacion.xlsx";
+/* ==================== CONFIGURACIÓN ====================
+   Pega aquí la URL de tu implementación (Deploy) de Google Apps Script
+   (termina en /exec). Ver GUIA_INSTALACION.md para el paso a paso. */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-eOplFMcQgMWz1nXE0-5-9SXwGO-XeFjQUXbYIZ01whkrGjkztDykajAE8914pOhc/exec";
 
-let msalInstance = null, msalInitError = null;
-try{
-  if(typeof msal === 'undefined') throw new Error('La librería de Microsoft (MSAL) no cargó. Revisa tu conexión, bloqueadores de anuncios o VPN.');
-  msalInstance = new msal.PublicClientApplication({
-    auth: {
-      clientId: MSAL_CLIENT_ID,
-      authority: "https://login.microsoftonline.com/" + MSAL_TENANT_ID,
-      redirectUri: window.location.origin + window.location.pathname
-    },
-    cache: { cacheLocation: "localStorage" }
-  });
-}catch(e){ msalInitError = e; console.error('Error inicializando MSAL:', e); }
-let currentAccount = null, connected = false;
+let sessionToken = null; // vive solo en memoria, nunca en localStorage
+let connected = false;
 
-function encodePath(p){ return p.split('/').map(encodeURIComponent).join('/'); }
-const GRAPH_BASE = "https://graph.microsoft.com/v1.0/me/drive/root:/" + encodePath(EXCEL_FILE_PATH) + ":/workbook";
-
-/* ==================== AUTENTICACIÓN ==================== */
-async function ensureLogin(){
-  if(msalInitError) throw msalInitError;
-  if(!msalInstance) throw new Error('MSAL no está disponible.');
-  if(currentAccount) return;
-  const accounts = msalInstance.getAllAccounts();
-  if(accounts.length){ currentAccount = accounts[0]; return; }
-  const res = await msalInstance.loginPopup({ scopes: GRAPH_SCOPES });
-  currentAccount = res.account;
-}
-async function getToken(){
-  await ensureLogin();
-  try{
-    const res = await msalInstance.acquireTokenSilent({ scopes: GRAPH_SCOPES, account: currentAccount });
-    return res.accessToken;
-  }catch(e){
-    const res = await msalInstance.acquireTokenPopup({ scopes: GRAPH_SCOPES });
-    currentAccount = res.account;
-    return res.accessToken;
+/* ==================== CAPA DE COMUNICACIÓN CON GOOGLE APPS SCRIPT ====================
+   Nota técnica: se envía el body sin forzar Content-Type "application/json" a
+   propósito, para que el navegador use "text/plain" y así Apps Script no exija
+   una petición previa OPTIONS (preflight) que los Web Apps de Apps Script no
+   soportan. El backend igual lo interpreta como JSON. */
+async function apiCall(action, payload={}){
+  if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('PEGA_AQUI') === 0){
+    throw new Error('Falta configurar APPS_SCRIPT_URL en el código con la URL de tu Web App de Google Apps Script.');
   }
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action, token: sessionToken, ...payload })
+  });
+  if(!res.ok) throw new Error('Error de red (' + res.status + ') al contactar el servidor.');
+  const data = await res.json();
+  if(!data.ok) throw new Error(data.error || 'Error desconocido del servidor.');
+  return data.data;
 }
-async function connect(){
+
+/* ==================== ACCESO / CONTRASEÑA ==================== */
+async function doLogin(){
+  const pw = $('lockPassword').value;
+  $('lockError').textContent = '';
+  showLoading('Verificando contraseña…');
   try{
-    showLoading('Conectando con Microsoft 365…');
-    await ensureLogin();
+    const data = await apiCall('login', { password: pw });
+    sessionToken = data.token;
     connected = true;
-    $('connStatus').textContent = 'Conectado: ' + (currentAccount && currentAccount.username ? currentAccount.username : '');
-    $('btnConnect').textContent = 'Actualizar datos';
-    await Promise.all([loadFacturas(), loadCotizaciones()]);
-    historyRender();
-    alert('Conectado. Datos cargados desde Excel.');
+    $('lockScreen').classList.remove('show');
+    $('connStatus').textContent = '🔓 Sesión activa';
+    $('btnChangePw').style.display = '';
+    $('btnLogout').style.display = '';
+    await refreshAllData();
+    lists(); clientsRender(); productsRender(); historyRender();
+    await newDoc();
   }catch(e){
-    alert('No se pudo conectar: ' + e.message);
-  }finally{ hideLoading(); }
+    $('lockError').textContent = e.message;
+  }finally{ hideLoading(); $('lockPassword').value=''; }
+}
+function logout(){
+  sessionToken = null; connected = false;
+  $('connStatus').textContent = '🔒 Bloqueado';
+  $('btnChangePw').style.display = 'none';
+  $('btnLogout').style.display = 'none';
+  $('lockScreen').classList.add('show');
+}
+function openChangePw(){ $('pwError').textContent=''; $('pwActual').value=''; $('pwNueva').value=''; $('changePwModal').classList.add('show'); }
+async function doChangePw(){
+  $('pwError').textContent='';
+  showLoading('Actualizando contraseña…');
+  try{
+    await apiCall('changePassword', { actual: $('pwActual').value, nueva: $('pwNueva').value });
+    closeModal('changePwModal');
+    alert('Contraseña actualizada correctamente.');
+  }catch(e){ $('pwError').textContent = e.message; }
+  finally{ hideLoading(); }
 }
 
-/* ==================== GRAPH / EXCEL HELPERS ==================== */
-async function graphFetch(path, options={}){
-  const token = await getToken();
-  const res = await fetch(GRAPH_BASE + path, {
-    ...options,
-    headers: { 'Authorization':'Bearer '+token, 'Content-Type':'application/json', ...(options.headers||{}) }
-  });
-  if(!res.ok){ const t = await res.text(); throw new Error('Graph '+res.status+': '+t); }
-  if(res.status===204) return null;
-  return res.json();
+/* ==================== CARGA DE DATOS (desde Google Sheets vía Apps Script) ==================== */
+async function refreshAllData(){
+  const data = await apiCall('bootstrap');
+  db.clients = data.clients || [];
+  db.products = data.products || [];
+  db.invoices = data.invoices || [];
+  db.quotes = data.quotes || [];
 }
-async function tableGetRows(name){
-  const data = await graphFetch(`/tables('${name}')/rows?$select=values`);
-  return data.value.map(r=>r.values[0]);
-}
-async function tableAddRow(name, values){
-  return graphFetch(`/tables('${name}')/rows/add`, { method:'POST', body: JSON.stringify({ values:[values] }) });
-}
-async function tableUpdateRow(name, index, values){
-  return graphFetch(`/tables('${name}')/rows/itemAt(index=${index})`, { method:'PATCH', body: JSON.stringify({ values:[values] }) });
-}
-async function getConfig(){
-  const rows = await tableGetRows('tblConfiguracion');
-  const cfg = {}; rows.forEach(r=>{ cfg[String(r[0])] = r[1]; }); return cfg;
-}
-async function setConfigValue(param, value){
-  const rows = await tableGetRows('tblConfiguracion');
-  const idx = rows.findIndex(r=>String(r[0])===param);
-  if(idx>=0) await tableUpdateRow('tblConfiguracion', idx, [param, value]);
-  else await tableAddRow('tblConfiguracion', [param, value]);
-}
-
-/* ==================== FECHAS ==================== */
-function excelValToIso(v){
-  if(v===null||v===undefined||v==='') return '';
-  if(typeof v==='number'){ const ms=Math.round((v-25569)*86400*1000); return iso(new Date(ms)); }
-  const s = String(v);
-  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
-  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
-  if(m) return m[3]+'-'+pad(m[1])+'-'+pad(m[2]);
-  return s;
-}
-
-/* ==================== NUMERACIÓN ==================== */
-async function nextInvoiceNumber(){
-  const cfg = await getConfig();
-  let ultimo = Number(cfg['UltimoNumeroFactura']||10081);
-  const rows = await tableGetRows('tblFacturas');
-  rows.forEach(r=>{ const n=Number(r[1]); if(!isNaN(n) && n>ultimo) ultimo=n; });
-  return ultimo+1;
-}
-async function nextQuoteNumber(){
-  const cfg = await getConfig();
-  let ultimo = Number(cfg['UltimoNumeroCotizacion']||100);
-  const rows = await tableGetRows('tblCotizaciones');
-  rows.forEach(r=>{ const n=Number(r[1]); if(!isNaN(n) && n>ultimo) ultimo=n; });
-  return ultimo+1;
-}
-
-/* ==================== GUARDAR / ACTUALIZAR ==================== */
-async function saveInvoiceToExcel(inv){
-  const rows = await tableGetRows('tblFacturas');
-  const id = rows.length+1;
-  await tableAddRow('tblFacturas', [
-    id, inv.number, inv.date, inv.due, inv.client, inv.clientId, inv.contact,
-    inv.address, inv.subtotal, inv.tax, inv.total, inv.balance, inv.status, inv.notes, inv.paymentMethod||''
-  ]);
-  for(const item of inv.items){
-    const base=item.qty*item.price, tax=base*item.tax/100;
-    await tableAddRow('tblDetalleFactura', [inv.number, item.code, item.desc, item.qty, item.price, item.tax, tax, base+tax]);
-  }
-  await setConfigValue('UltimoNumeroFactura', inv.number);
-}
-async function saveQuoteToExcel(q){
-  const rows = await tableGetRows('tblCotizaciones');
-  const id = rows.length+1;
-  await tableAddRow('tblCotizaciones', [
-    id, q.number, q.date, q.due, q.client, q.clientId, q.contact, q.address,
-    q.subtotal, q.tax, q.total, q.status, q.notes
-  ]);
-  for(const item of q.items){
-    const base=item.qty*item.price, tax=base*item.tax/100;
-    await tableAddRow('tblDetalleCotizacion', [q.number, item.code, item.desc, item.qty, item.price, item.tax, tax, base+tax]);
-  }
-  await setConfigValue('UltimoNumeroCotizacion', q.number);
-}
-async function updateInvoiceStatus(number, status, paymentMethod){
-  const rows = await tableGetRows('tblFacturas');
-  const idx = rows.findIndex(r=>Number(r[1])===Number(number));
-  if(idx<0) throw new Error('Factura no encontrada');
-  const r = rows[idx].slice();
-  const total = Number(r[10])||0;
-  r[12] = status;
-  r[14] = paymentMethod!==undefined ? paymentMethod : (r[14]||'');
-  r[11] = status==='Pagada' ? 0 : total;
-  await tableUpdateRow('tblFacturas', idx, r);
-}
-async function updateQuoteStatus(number, status){
-  const rows = await tableGetRows('tblCotizaciones');
-  const idx = rows.findIndex(r=>Number(r[1])===Number(number));
-  if(idx<0) throw new Error('Cotización no encontrada');
-  const r = rows[idx].slice();
-  r[11] = status;
-  await tableUpdateRow('tblCotizaciones', idx, r);
-}
-
-/* ==================== CARGA DE DATOS ==================== */
-async function loadFacturas(){
-  if(!connected) return;
-  const rows = await tableGetRows('tblFacturas');
-  db.invoices = rows.filter(r=>r[1]!==null && r[1]!==undefined && r[1]!=='').map(r=>({
-    id:r[0], number:Number(r[1]), date:excelValToIso(r[2]), due:excelValToIso(r[3]),
-    client:r[4], clientId:r[5], contact:r[6], address:r[7],
-    subtotal:Number(r[8])||0, tax:Number(r[9])||0, total:Number(r[10])||0, balance:Number(r[11])||0,
-    status:r[12]||'Pendiente', notes:r[13]||'', paymentMethod:r[14]||''
-  }));
-}
-async function loadCotizaciones(){
-  if(!connected) return;
-  const rows = await tableGetRows('tblCotizaciones');
-  db.quotes = rows.filter(r=>r[1]!==null && r[1]!==undefined && r[1]!=='').map(r=>({
-    id:r[0], number:Number(r[1]), date:excelValToIso(r[2]), due:excelValToIso(r[3]),
-    client:r[4], clientId:r[5], contact:r[6], address:r[7],
-    subtotal:Number(r[8])||0, tax:Number(r[9])||0, total:Number(r[10])||0,
-    status:r[11]||'Pendiente', notes:r[12]||''
-  }));
-}
+async function loadFacturas(){ if(!connected) return; const data = await apiCall('bootstrap'); db.invoices = data.invoices||[]; }
+async function loadCotizaciones(){ if(!connected) return; const data = await apiCall('bootstrap'); db.quotes = data.quotes||[]; }
+async function nextInvoiceNumber(){ return (await apiCall('peekNextInvoiceNumber')).number; }
+async function nextQuoteNumber(){ return (await apiCall('peekNextQuoteNumber')).number; }
+async function saveInvoiceToExcel(inv){ return apiCall('saveInvoice', { invoice: inv }); }
+async function saveQuoteToExcel(q){ return apiCall('saveQuote', { quote: q }); }
+async function updateInvoiceStatus(number, status, paymentMethod){ return apiCall('updateInvoiceStatus', { number, status, paymentMethod }); }
+async function updateQuoteStatus(number, status){ return apiCall('updateQuoteStatus', { number, status }); }
 async function loadItemsFor(table, number){
-  const rows = await tableGetRows(table);
-  return rows.filter(r=>r[0]!==null && r[0]!==undefined && r[0]!=='' && Number(r[0])===Number(number)).map(r=>({ code:r[1], desc:r[2], qty:r[3], price:r[4], tax:r[5] }));
+  const action = table === 'tblDetalleFactura' ? 'getInvoiceItems' : 'getQuoteItems';
+  return (await apiCall(action, { number })).items;
 }
 
 /* ==================== UI GENERAL ==================== */
@@ -296,7 +213,7 @@ async function newDoc(){
   $('client').value=$('clientId').value=$('contact').value=$('address').value=$('notes').value='';
   $('items').querySelector('tbody').innerHTML=''; addItem();
   $('date').textContent = fmt(current.date);
-  $('num').textContent = connected ? '…' : '(conéctate para asignar número)';
+  $('num').textContent = connected ? '…' : '(ingresa la contraseña para asignar número)';
   $('due').textContent = fmt(plus(current.date, 30));
   $('docStatus').textContent = 'PENDIENTE';
   calc();
@@ -336,7 +253,7 @@ function collectItems(){
   return { items, subtotal:sub, tax, total:sub+tax };
 }
 async function saveDoc(){
-  if(!connected){ alert('Conéctate con Microsoft 365 primero.'); return; }
+  if(!connected){ alert('Ingresa la contraseña primero.'); return; }
   if(!current.number){ alert('Todavía no se asignó número. Espera un momento e intenta de nuevo.'); return; }
   const c = collectItems();
   $('btnSaveDoc').disabled = true;
@@ -394,7 +311,7 @@ function histMode(mode){
 function setFilter(f){ filterVar=f; document.querySelectorAll('.ffilter').forEach(b=>b.classList.toggle('active', b.dataset.f===f)); historyRender(); }
 function pillFor(status){ return '<span class="pill '+String(status||'').toLowerCase()+'">'+esc(status)+'</span>'; }
 function historyRender(){
-  if(!connected){ $('history').innerHTML='<p>Conéctate con Microsoft 365 para ver el historial.</p>'; return; }
+  if(!connected){ $('history').innerHTML='<p>Ingresa la contraseña para ver el historial.</p>'; return; }
   const q=($('invoiceSearch').value||'').toLowerCase();
   let list = histModeVar==='factura' ? db.invoices.slice() : db.quotes.slice();
   list = list.filter(x=>String(x.number).includes(q)||(x.client||'').toLowerCase().includes(q));
@@ -456,21 +373,34 @@ async function convertQuote(number){
   finally{ hideLoading(); }
 }
 
-/* ==================== CLIENTES / PRODUCTOS (local, fase 2 pasará a Excel) ==================== */
-function clientSave(){
+/* ==================== CLIENTES / PRODUCTOS (guardados en Google Sheets) ==================== */
+async function clientSave(){
+  if(!connected) return alert('Ingresa la contraseña primero.');
   let n=$('cName').value.trim(); if(!n) return alert('Ingrese el nombre.');
-  let x=db.clients.find(v=>v.name.toLowerCase()===n.toLowerCase());
   let o={name:n,id:$('cId').value,contact:$('cContact').value,address:$('cAddress').value};
-  if(x) Object.assign(x,o); else db.clients.push(o);
-  saveLocal(); ['cName','cId','cContact','cAddress'].forEach(id=>$(id).value=''); clientsRender(); lists(); alert('Cliente guardado.');
+  showLoading('Guardando cliente…');
+  try{
+    await apiCall('saveClient', { client:o });
+    await refreshAllData();
+    ['cName','cId','cContact','cAddress'].forEach(id=>$(id).value='');
+    clientsRender(); lists(); alert('Cliente guardado.');
+  }catch(e){ alert('Error: '+e.message); }
+  finally{ hideLoading(); }
 }
 function clientLookup(){ let x=db.clients.find(v=>v.name.toLowerCase()===$('client').value.toLowerCase()); if(x){ $('clientId').value=x.id; $('contact').value=x.contact; $('address').value=x.address; } }
 function clientsRender(){ $('clientTable').innerHTML = db.clients.length ? '<table class="list"><tr><th>Nombre</th><th>ID</th><th>Contacto</th><th>Dirección</th></tr>'+db.clients.map(x=>'<tr><td>'+esc(x.name)+'</td><td>'+esc(x.id)+'</td><td>'+esc(x.contact)+'</td><td>'+esc(x.address)+'</td></tr>').join('')+'</table>' : '<p>No hay clientes.</p>'; }
-function productSave(){
+async function productSave(){
+  if(!connected) return alert('Ingresa la contraseña primero.');
   let c=$('pCode').value.trim(); if(!c) return alert('Ingrese el código/item.');
-  let x=db.products.find(v=>v.code.toLowerCase()===c.toLowerCase()), o={code:c,desc:$('pDesc').value,price:+$('pPrice').value||0,tax:+$('pTax').value||0};
-  if(x) Object.assign(x,o); else db.products.push(o);
-  saveLocal(); ['pCode','pDesc','pPrice'].forEach(id=>$(id).value=''); $('pTax').value=0; productsRender(); lists(); alert('Producto guardado.');
+  let o={code:c,desc:$('pDesc').value,price:+$('pPrice').value||0,tax:+$('pTax').value||0};
+  showLoading('Guardando producto…');
+  try{
+    await apiCall('saveProduct', { product:o });
+    await refreshAllData();
+    ['pCode','pDesc','pPrice'].forEach(id=>$(id).value=''); $('pTax').value=0;
+    productsRender(); lists(); alert('Producto guardado.');
+  }catch(e){ alert('Error: '+e.message); }
+  finally{ hideLoading(); }
 }
 function productsRender(){ $('productTable').innerHTML = db.products.length ? '<table class="list"><tr><th>Código</th><th>Descripción</th><th>Precio</th><th>ITBMS</th></tr>'+db.products.map(x=>'<tr><td>'+esc(x.code)+'</td><td>'+esc(x.desc)+'</td><td>'+money(x.price)+'</td><td>'+x.tax+'%</td></tr>').join('')+'</table>' : '<p>No hay productos.</p>'; }
 function lists(){
@@ -479,23 +409,28 @@ function lists(){
   d.innerHTML = db.products.map(x=>'<option value="'+esc(x.code)+'">'+esc(x.desc)+'</option>').join('');
 }
 function backup(){ let b=new Blob([JSON.stringify({clients:db.clients,products:db.products},null,2)],{type:'application/json'}), a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='JTechCars_Respaldo_'+iso(new Date())+'.json'; a.click(); }
-function restoreFile(){ $('restore').click(); }
+function restoreFile(){ if(!connected) return alert('Ingresa la contraseña primero.'); $('restore').click(); }
 function restore(e){
   let r=new FileReader();
-  r.onload=()=>{ try{ let x=JSON.parse(r.result); if(!x.clients||!x.products) throw 0; db.clients=x.clients; db.products=x.products; saveLocal(); lists(); clientsRender(); productsRender(); alert('Respaldo restaurado.'); }catch{ alert('Respaldo no válido.'); } };
+  r.onload=async ()=>{
+    try{
+      let x=JSON.parse(r.result); if(!x.clients||!x.products) throw 0;
+      showLoading('Restaurando clientes y productos en Google Sheets…');
+      for(const c of x.clients) await apiCall('saveClient', { client:c });
+      for(const p of x.products) await apiCall('saveProduct', { product:p });
+      await refreshAllData(); lists(); clientsRender(); productsRender();
+      alert('Respaldo restaurado en Google Sheets.');
+    }catch(err){ alert('Respaldo no válido o error al restaurar: ' + (err.message||'')); }
+    finally{ hideLoading(); }
+  };
   r.readAsText(e.target.files[0]);
 }
 
-/* ==================== ARRANQUE ==================== */
-window.addEventListener('load', async ()=>{
-  lists();
-  if(msalInstance){
-    try{ await msalInstance.handleRedirectPromise(); }catch(e){}
-    const accounts = msalInstance.getAllAccounts();
-    if(accounts.length){ currentAccount = accounts[0]; await connect(); }
-  } else if(msalInitError){
-    $('connStatus').textContent = 'Error: ' + msalInitError.message;
-  }
+/* ==================== ARRANQUE ====================
+   La aplicación queda bloqueada (ver #lockScreen) hasta que se ingrese
+   la contraseña correcta; solo entonces se cargan los datos reales. */
+window.addEventListener('load', ()=>{
   openDoc('factura');
+  $('lockPassword').focus();
 });
 </script></body></html>
