@@ -113,6 +113,17 @@ Gracias por preferirnos, recuerde seguirnos en <a href="https://www.facebook.com
 </div>
 </div></div>
 
+<div class="modal" id="missModal"><div class="modalbox">
+<h3>📋 Faltan datos en tu base de datos</h3>
+<p>Para mantener todo ordenado, detecté lo que usaste y no está registrado:</p>
+<div id="missList"></div>
+<div class="actions">
+<button class="primary" onclick="resolverMiss('guardar')">Guardar y continuar</button>
+<button onclick="resolverMiss('omitir')">Solo guardar el documento</button>
+<button onclick="resolverMiss('cancelar')">Cancelar</button>
+</div>
+</div></div>
+
 <div id="loadingOverlay"><div id="loadingMsg">Cargando…</div></div>
 
 <script>
@@ -375,6 +386,9 @@ function collectItems(){
 async function saveDoc(){
   if(!connected){ alert('Ingresa la contraseña primero.'); return; }
   if(!current.number){ alert('Todavía no se asignó número. Espera un momento e intenta de nuevo.'); return; }
+  if(!($('client').value||'').trim()){ alert('Ingresa el nombre del cliente.'); return; }
+  // Antes de guardar el documento, ofrece registrar lo que aun no existe en Clientes/Productos
+  if(!await asegurarRegistros()) return;
   const c = collectItems();
   $('btnSaveDoc').disabled = true;
   try{
@@ -549,6 +563,82 @@ async function convertQuote(number){
 }
 
 /* ==================== CLIENTES / PRODUCTOS (guardados en Google Sheets) ==================== */
+
+/* ---------- avisar de clientes y artículos que aun no estan registrados ---------- */
+let missPending = null;
+let missData = null;
+
+function detectFaltantes(){
+  const clientes = [];
+  const productos = [];
+  const nomCli = ($('client').value || '').trim();
+  if(nomCli && !db.clients.some(c => String(c.name).trim().toLowerCase() === nomCli.toLowerCase())){
+    clientes.push({
+      name: nomCli,
+      id: ($('clientId').value || '').trim(),
+      contact: ($('contact').value || '').trim(),
+      address: ($('address').value || '').trim()
+    });
+  }
+  const vistos = new Set();
+  collectItems().items.forEach(it => {
+    const code = (it.code || '').trim();
+    if(!code) return;                                  // item sin codigo: no se puede registrar
+    const k = code.toLowerCase();
+    if(vistos.has(k)) return;                          // evita repetir el mismo renglon
+    vistos.add(k);
+    if(!db.products.some(p => String(p.code).trim().toLowerCase() === k)){
+      productos.push({ code:code, desc:(it.desc || '').trim(), price:Number(it.price) || 0, tax:Number(it.tax) || 0 });
+    }
+  });
+  return { clientes:clientes, productos:productos };
+}
+
+function asegurarRegistros(){
+  const f = detectFaltantes();
+  if(!f.clientes.length && !f.productos.length) return Promise.resolve(true);
+  let html = '';
+  if(f.clientes.length){
+    html += '<b>Cliente nuevo:</b><ul>' + f.clientes.map(c =>
+      '<li><b>' + esc(c.name) + '</b>' +
+      (c.id ? ' &nbsp;•&nbsp; ID: ' + esc(c.id) : '') +
+      (c.contact ? ' &nbsp;•&nbsp; Teléfono: ' + esc(c.contact) : '') +
+      (c.address ? ' &nbsp;•&nbsp; Dirección: ' + esc(c.address) : '') +
+      '</li>').join('') + '</ul>';
+  }
+  if(f.productos.length){
+    html += '<b>Artículos / servicios nuevos:</b><ul>' + f.productos.map(p =>
+      '<li><b>' + esc(p.code) + '</b> &nbsp;•&nbsp; ' + esc(p.desc || '(sin descripción)') +
+      ' &nbsp;•&nbsp; ' + money(p.price) + ' &nbsp;•&nbsp; ITBMS ' + p.tax + '%</li>').join('') + '</ul>';
+  }
+  $('missList').innerHTML = html;
+  $('missModal').classList.add('show');
+  missData = f;
+  return new Promise(resolve => { missPending = resolve; });
+}
+
+async function resolverMiss(opcion){
+  const resolve = missPending, datos = missData;
+  missPending = null; missData = null;
+  closeModal('missModal');
+  if(!resolve) return;
+  if(opcion === 'cancelar'){ resolve(false); return; }
+  if(opcion === 'guardar') await guardarFaltantes(datos);
+  resolve(true);
+}
+
+async function guardarFaltantes(f){
+  showLoading('Guardando en tu base de datos…');
+  let ok = 0, fallos = [];
+  try{
+    for(const c of f.clientes){ try{ await apiCall('saveClient', { client:c }); ok++; }catch(e){ fallos.push('Cliente ' + c.name + ': ' + e.message); } }
+    for(const p of f.productos){ try{ await apiCall('saveProduct', { product:p }); ok++; }catch(e){ fallos.push('Artículo ' + p.code + ': ' + e.message); } }
+    if(ok) await refreshAllData();
+  }finally{ hideLoading(); }
+  if(fallos.length) alert('Se guardaron ' + ok + ' registro(s). Hubo problemas con:\n\n' + fallos.join('\n'));
+  else alert(ok + ' registro(s) agregado(s) a tu base de datos.');
+}
+
 async function clientSave(){
   if(!connected) return alert('Ingresa la contraseña primero.');
   let n=$('cName').value.trim(); if(!n) return alert('Ingrese el nombre.');
