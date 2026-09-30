@@ -118,7 +118,8 @@ Gracias por preferirnos, recuerde seguirnos en <a href="https://www.facebook.com
 /* ==================== CONFIGURACIÓN ====================
    Pega aquí la URL de tu implementación (Deploy) de Google Apps Script
    (termina en /exec). Ver GUIA_INSTALACION.md para el paso a paso. */
-const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby-eOplFMcQgMWz1nXE0-5-9SXwGO-XeFjQUXbYIZ01whkrGjkztDykajAE8914pOhc/exec";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCvf1AOiUGRuqR7W_a-8t6ERQdEjR3mVjlayuaDwapoOJNN5dYbwWllcF_burJBlH4/exec";
+const ACCIONES_ADMIN = ['updateInvoice','updateQuote','deleteInvoice','deleteQuote','deleteClient','deleteProduct'];
 
 let sessionToken = null; // vive solo en memoria, nunca en localStorage
 let adminToken = null;   // clave de administrador para editar/eliminar
@@ -133,13 +134,26 @@ async function apiCall(action, payload={}){
   if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('PEGA_AQUI') === 0){
     throw new Error('Falta configurar APPS_SCRIPT_URL en el código con la URL de tu Web App de Google Apps Script.');
   }
-  const res = await fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    body: JSON.stringify({ action, token: sessionToken, adminToken, ...payload })
-  });
+  let res;
+  try{
+    res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action, token: sessionToken, adminToken, ...payload })
+    });
+  }catch(err){
+    throw new Error('No se pudo conectar con el servidor. Verifica tu internet, que el Web App siga desplegado y recarga la pagina con Ctrl+F5 (puede haber una version antigua en cache).');
+  }
   if(!res.ok) throw new Error('Error de red (' + res.status + ') al contactar el servidor.');
-  const data = await res.json();
+  let data;
+  try{
+    data = await res.json();
+  }catch(err){
+    throw new Error('El servidor no devolvio una respuesta valida. Si te pido iniciar sesion con Google, el Web App no es publico: en Apps Script ve a Implementar > Administrar implementaciones > editar > Quien tiene acceso > Cualquier persona.');
+  }
   if(!data.ok) throw new Error(data.error || 'Error desconocido del servidor.');
+  // El token de administrador es de un solo uso: se descarta al emplearlo,
+  // asi la proxima vez que edites o elimines vuelvas a teclear la clave.
+  if(ACCIONES_ADMIN.includes(action)) adminToken = null;
   return data.data;
 }
 
@@ -232,7 +246,6 @@ function closeModal(id){ $(id).classList.remove('show'); }
    la clave de administrador, que el servidor valida aparte de la
    sesión. El token dura 10 minutos. */
 let adminPending = null;   // { resolve, mensaje }
-function hasAdminKey(){ return !!adminToken; }
 function closeAdminKey(ok){
   const p = adminPending; adminPending = null;
   closeModal('adminModal');
@@ -252,10 +265,9 @@ async function submitAdminKey(){
   }catch(e){ $('adminError').textContent = e.message; }
   finally{ hideLoading(); }
 }
-/** Pide la clave si no la hay y ejecuta fn() solo si quedó autorizada. */
+/** Pide la clave SIEMPRE: cada editar/eliminar vuelve a pedirla. */
 function requireAdmin(mensaje, fn){
   if(!connected) return alert('Primero ingresa la contraseña de acceso.');
-  if(adminToken){ fn(); return; }
   adminPending = { resolve: ok => { if(ok) fn(); } };
   $('adminPrompt').textContent = mensaje || 'Esta acción requiere privilegios de administrador.';
   $('adminError').textContent = '';
@@ -378,7 +390,13 @@ async function saveDoc(){
     editing = null;
     tab('historial'); histMode(docMode);
   }catch(e){
-    if(/clave de administrador/i.test(e.message)){ adminToken = null; }
+    if(/clave de administrador/i.test(e.message)){
+      // Se vencio la clave mientras editabas: se vuelve a pedir y se reintenta solo
+      adminToken = null;
+      requireAdmin('Guardar los cambios es una funcion de administrador y requiere la clave de administrador.',
+        ()=>saveDoc());
+      return;
+    }
     alert('Error al guardar: '+e.message);
   }
   finally{ $('btnSaveDoc').disabled=false; hideLoading(); }
