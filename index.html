@@ -3,7 +3,7 @@
 <style>
 *{box-sizing:border-box}body{margin:0;background:#eee;font-family:Arial;color:#222}.app{max-width:1150px;margin:20px auto;background:#fff;box-shadow:0 2px 12px #aaa}.bar,.tabs{padding:12px 18px;background:#222;color:#fff}.tabs{background:#f3f3f3;color:#222;display:flex;gap:6px;flex-wrap:wrap}.panel{display:none;padding:24px}.active{display:block}.invoice{border:1px solid #005A82;padding:28px 44px}.header{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #005A82;padding-bottom:14px}.brand{display:flex;align-items:center}.brandinfo{margin-left:46px}.logo{width:105px;height:105px;object-fit:contain}.brand h1{margin:0 0 7px;color:#005A82}.meta{text-align:right;line-height:1.9;padding-left:20px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:18px 0}label{font-weight:bold;font-size:13px;display:block}input,textarea,select{width:100%;padding:8px;border:1px solid #aaa;border-radius:4px;margin-top:5px;font:inherit}textarea{min-height:90px}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #aaa;padding:7px}th{background:#eee}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}button{padding:9px 13px;border:0;border-radius:5px;cursor:pointer;font-weight:bold}.primary{background:#222;color:#fff}.danger{background:#a00;color:#fff}.ok{background:#2a7;color:#fff}.warn{background:#b58900;color:#fff}
 .list .actions-cell{white-space:nowrap}
-.list button{padding:5px 8px;font-size:12px;margin:2px 0}.summary{max-width:320px;margin:15px 0 15px auto}.summary div{display:flex;justify-content:space-between;padding:6px}.grand{border-top:2px solid #005A82;font-size:18px}.conditions{margin-top:12px;padding:12px;border:1px solid #bbb;background:#f7f7f7;line-height:1.55}.conditions a{color:#222}.card{border:1px solid #ccc;padding:15px;margin-bottom:15px}.list td,.list th{border-left:0;border-right:0}.search{max-width:450px}.status{font-size:12px}.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center;z-index:999}.modal.show{display:flex}.modalbox{background:#fff;padding:20px;max-width:700px;width:90%;border-radius:6px}@media(max-width:700px){.grid{grid-template-columns:1fr}.header{flex-direction:column;align-items:flex-start}.meta{text-align:left}}@media print{body{background:#fff}.app{margin:0;box-shadow:none}.bar,.tabs,.actions,.no-print{display:none!important}.panel.active{padding:0}.invoice{border:0}input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}input[type=number]{-moz-appearance:textfield}input,textarea{border:0;padding:0}}
+.list button{padding:5px 8px;font-size:12px;margin:2px 0}.summary{max-width:320px;margin:15px 0 15px auto}.summary div{display:flex;justify-content:space-between;padding:6px}.grand{border-top:2px solid #005A82;font-size:18px}.conditions{margin-top:12px;padding:12px;border:1px solid #bbb;background:#f7f7f7;line-height:1.55}.conditions a{color:#222}.card{border:1px solid #ccc;padding:15px;margin-bottom:15px}.list td,.list th{border-left:0;border-right:0}.search{max-width:450px}.status{font-size:12px}.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center;z-index:999}.modal.show{display:flex}.modalbox{background:#fff;padding:20px;max-width:700px;width:90%;border-radius:6px}@media(max-width:700px){.grid{grid-template-columns:1fr}.header{flex-direction:column;align-items:flex-start}.meta{text-align:left}}@media print{body{background:#fff}.app{margin:0;box-shadow:none}.bar,.tabs,.actions,.no-print{display:none!important}.panel.active{padding:0}.invoice{border:0}input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}input[type=number]{-moz-appearance:textfield}input,textarea{border:0;padding:0}@page{margin:10mm}}
 .connbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.connbar button{background:#fff;color:#222}#connStatus{font-size:13px;opacity:.85}
 .subtabs{display:flex;gap:6px;margin-bottom:10px}.subtabs button{background:#eee;color:#222}.subtabs button.active{background:#222;color:#fff}
 .filterbar{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.filterbar button{background:#eee;color:#222;font-weight:normal;font-size:13px}.filterbar button.active{background:#222;color:#fff}
@@ -45,7 +45,8 @@
 Toda factura al no ser cancelada dentro de 30 días tendrá un recargo de 20% al valor total.<br>
 Gracias por preferirnos, recuerde seguirnos en <a href="https://www.facebook.com/JTechCarsPTY" target="_blank">http://www.facebook.com/JTechCarsPTY</a><br>
 <a href="https://www.instagram.com/JTechCarsPTY" target="_blank">http://www.instagram.com/JTechCarsPTY</a></div>
-<div class="actions no-print"><button class="primary" id="btnSaveDoc" onclick="saveDoc()">Guardar</button><button id="btnCancelEdit" onclick="cancelEdit()" style="display:none">Cancelar edición</button><button onclick="calc();window.print()">Imprimir / PDF</button><button onclick="newDoc()">Nuevo</button></div>
+<div class="actions no-print"><button class="primary" id="btnSaveDoc" onclick="saveDoc()">Guardar</button><button id="btnCancelEdit" onclick="cancelEdit()" style="display:none">Cancelar edición</button><button onclick="prepararImpresion()">Imprimir / PDF</button><button onclick="newDoc()">Nuevo</button></div>
+<p class="no-print" style="font-size:12px;color:#666;margin:4px 0 0"><b>Para que el PDF no salga con el nombre del negocio ni la dirección web arriba y abajo:</b> en el diálogo de impresión ve a <b>Más ajustes → desactiva "Encabezados y pies de página"</b>, y luego elige <b>Guardar como PDF</b>.</p>
 </div></section>
 
 <section id="historial" class="panel"><div class="card">
@@ -240,6 +241,18 @@ function saveLocal(){ localStorage.setItem(CKEY, JSON.stringify({clients:db.clie
 function showLoading(msg){ $('loadingMsg').textContent = msg||'Cargando…'; $('loadingOverlay').classList.add('show'); }
 function hideLoading(){ $('loadingOverlay').classList.remove('show'); }
 function closeModal(id){ $(id).classList.remove('show'); }
+
+/* Al imprimir, vacia el titulo de la pagina: Chrome lo pone por defecto
+   como encabezado ("JTech & Cars - Facturacion"). El pie con la URL solo
+   se quita desactivando "Encabezados y pies de pagina" en el dialogo. */
+let _tituloRespaldo = '';
+function prepararImpresion(){
+  calc();
+  _tituloRespaldo = document.title;
+  document.title = '';
+  window.print();
+  if(_tituloRespaldo) document.title = _tituloRespaldo;
+}
 
 /* ==================== CLAVE DE ADMINISTRADOR ====================
    Editar y eliminar no se ejecutan directamente: primero se pide
