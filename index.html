@@ -7,7 +7,7 @@
 .connbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}.connbar button{background:#fff;color:#222}#connStatus{font-size:13px;opacity:.85}
 .subtabs{display:flex;gap:6px;margin-bottom:10px}.subtabs button{background:#eee;color:#222}.subtabs button.active{background:#222;color:#fff}
 .filterbar{display:flex;gap:6px;margin:10px 0;flex-wrap:wrap}.filterbar button{background:#eee;color:#222;font-weight:normal;font-size:13px}.filterbar button.active{background:#222;color:#fff}
-.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;color:#fff;white-space:nowrap}.pill.pendiente{background:#b58900}.pill.pagada{background:#2a7}.pill.cancelada{background:#a00}.pill.convertida{background:#557}
+.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;color:#fff;white-space:nowrap}.pill.pendiente{background:#b58900}.pill.pagada{background:#2a7}.pill.cancelada{background:#a00}.pill.convertida{background:#557}.pill.parcial{background:#1a7f8e}.pill.efectivo{background:#2a7}.pill.transferencia{background:#557}
 #loadingOverlay{display:none;position:fixed;inset:0;background:#0009;align-items:center;justify-content:center;color:#fff;font-size:17px;z-index:1000}#loadingOverlay.show{display:flex}
 #docTitle{color:#d00}#due{color:#d00;font-weight:bold}#docStatus{color:#d00;font-weight:bold}
 </style></head><body>
@@ -19,7 +19,7 @@
 <button id="btnLogout" onclick="logout()" style="display:none">Cerrar sesión</button>
 </div></div>
 <div class="tabs no-print">
-<button onclick="openDoc('factura')">Nueva factura</button><button onclick="openDoc('cotizacion')">Nueva cotización</button><button onclick="tab('historial')">Historial</button><button onclick="tab('clientes')">Clientes</button><button onclick="tab('productos')">Productos</button><button onclick="backup()">Respaldar (clientes/productos)</button><button onclick="restoreFile()">Restaurar</button>
+<button onclick="openDoc('factura')">Nueva factura</button><button onclick="openDoc('cotizacion')">Nueva cotización</button><button onclick="tab('historial')">Historial</button><button onclick="tab('abonos')">Abonos</button><button onclick="tab('clientes')">Clientes</button><button onclick="tab('productos')">Productos</button><button onclick="tab('inventario')">Inventario</button><button onclick="backup()">Respaldar (clientes/productos)</button><button onclick="restoreFile()">Restaurar</button>
 </div>
 
 <section id="documento" class="panel active"><div class="invoice">
@@ -38,7 +38,7 @@
     <span class="status">% sobre el subtotal de los artículos</span>
   </div>
 </div>
-<div class="summary"><div><span>Subtotal</span><b id="subtotal">$0.00</b></div><div id="discountLine" style="display:none"><span id="discountLabel">Descuento</span><b id="discount">$0.00</b></div><div><span>ITBMS</span><b id="tax">$0.00</b></div><div class="grand"><span>Total</span><b id="total">$0.00</b></div><div><span>Saldo pendiente</span><b id="balance">$0.00</b></div></div>
+<div class="summary"><div><span>Subtotal</span><b id="subtotal">$0.00</b></div><div id="discountLine" style="display:none"><span id="discountLabel">Descuento</span><b id="discount">$0.00</b></div><div><span>ITBMS</span><b id="tax">$0.00</b></div><div class="grand"><span>Total</span><b id="total">$0.00</b></div><div id="abonadoLine" style="display:none"><span>Abonado</span><b id="abonado">$0.00</b></div><div><span>Saldo pendiente</span><b id="balance">$0.00</b></div></div>
 
 <label>Notas</label><textarea id="notes" placeholder="Escriba aquí las notas..."></textarea>
 <div class="conditions"><b>Condiciones:</b><br>
@@ -46,6 +46,11 @@ Toda factura al no ser cancelada dentro de 30 días tendrá un recargo de 20% al
 Gracias por preferirnos, recuerde seguirnos en <a href="https://www.facebook.com/JTechCarsPTY" target="_blank">http://www.facebook.com/JTechCarsPTY</a><br>
 <a href="https://www.instagram.com/JTechCarsPTY" target="_blank">http://www.instagram.com/JTechCarsPTY</a></div>
 <div class="actions no-print"><button class="primary" id="btnSaveDoc" onclick="saveDoc()">Guardar</button><button id="btnCancelEdit" onclick="cancelEdit()" style="display:none">Cancelar edición</button><button onclick="prepararImpresion()">Imprimir / PDF</button><button onclick="newDoc()">Nuevo</button></div>
+<div id="docAbonosBox" class="no-print" style="display:none;margin:16px 0 0;padding:12px;border:1px solid #c9c9c9;border-radius:6px">
+  <b>Abonos de esta factura</b>
+  <div id="docAbonos"></div>
+  <div class="actions"><button class="ok" id="btnAbonarDoc" onclick="abonarDocActual()">Registrar abono</button></div>
+</div>
 <p class="no-print" style="font-size:12px;color:#666;margin:4px 0 0"><b>Para que el PDF no salga con el nombre del negocio ni la dirección web arriba y abajo:</b> en el diálogo de impresión ve a <b>Más ajustes → desactiva "Encabezados y pies de página"</b>, y luego elige <b>Guardar como PDF</b>.</p>
 </div></section>
 
@@ -57,6 +62,7 @@ Gracias por preferirnos, recuerde seguirnos en <a href="https://www.facebook.com
 <div class="filterbar no-print" id="filterBar">
 <button class="ffilter active" data-f="todas" onclick="setFilter('todas')">Todas</button>
 <button class="ffilter" data-f="pendiente" onclick="setFilter('pendiente')">Por pagar</button>
+<button class="ffilter" data-f="parcial" onclick="setFilter('parcial')">Abonadas parcialmente</button>
 <button class="ffilter" data-f="pagada" onclick="setFilter('pagada')">Pagadas</button>
 <button class="ffilter" data-f="cancelada" onclick="setFilter('cancelada')">Canceladas</button>
 </div>
@@ -65,17 +71,70 @@ Gracias por preferirnos, recuerde seguirnos en <a href="https://www.facebook.com
 </div></section>
 
 <section id="clientes" class="panel"><div class="card"><h2>Clientes</h2><div class="grid"><input id="cName" placeholder="Nombre"><input id="cId" placeholder="RUC / ID"><input id="cContact" placeholder="Teléfono / Correo"><input id="cAddress" placeholder="Dirección"></div><button class="primary" id="btnClient" onclick="clientSave()">Guardar cliente</button> <button id="btnCancelClient" onclick="cancelEditClient()" style="display:none">Cancelar edición</button> <span id="clientEditHint" class="status" style="display:none;color:#b58900">Editando un cliente existente (guardar lo actualiza)</span><div id="clientTable"></div></div></section>
-<section id="productos" class="panel"><div class="card"><h2>Productos / Servicios</h2><div class="grid"><input id="pCode" placeholder="Código / Item"><input id="pDesc" placeholder="Descripción"><input id="pPrice" type="number" step="0.01" placeholder="Precio"><input id="pTax" type="number" step="0.01" value="0" placeholder="ITBMS %"></div><button class="primary" id="btnProduct" onclick="productSave()">Guardar producto</button> <button id="btnCancelProduct" onclick="cancelEditProduct()" style="display:none">Cancelar edición</button> <span id="productEditHint" class="status" style="display:none;color:#b58900">Editando un producto existente</span><div id="productTable"></div></div></section>
+<section id="productos" class="panel"><div class="card"><h2>Productos / Servicios</h2><div class="grid"><input id="pCode" placeholder="Código / Item"><input id="pDesc" placeholder="Descripción"><input id="pPrice" type="number" step="0.01" placeholder="Precio"><input id="pTax" type="number" step="0.01" value="0" placeholder="ITBMS %"><input id="pCosto" type="number" step="0.01" value="0" placeholder="Costo de compra"><input id="pMin" type="number" step="1" min="0" value="0" placeholder="Stock mínimo (alerta)"></div><button class="primary" id="btnProduct" onclick="productSave()">Guardar producto</button> <button id="btnCancelProduct" onclick="cancelEditProduct()" style="display:none">Cancelar edición</button> <span id="productEditHint" class="status" style="display:none;color:#b58900">Editando un producto existente</span> <span class="status">Stock mínimo: cuando el inventario llegue a esta cantidad, se marca en rojo en la pestaña Inventario.</span><div id="productTable"></div></div></section>
 </div>
 <input id="restore" type="file" accept=".json" style="display:none" onchange="restore(event)">
 
+<section id="inventario" class="panel">
+<div class="card"><h2>📦 Entrada de mercancía</h2>
+<p class="status">Registra aquí las compras a proveedores. Cada entrada suma stock y define el costo promedio del artículo.</p>
+<div class="grid">
+<div><label>Fecha</label><input type="date" id="entFecha"></div>
+<div><label>Proveedor</label><input id="entProveedor" placeholder="Nombre del proveedor"></div>
+<div><label>Documento (factura / nota)</label><input id="entDocumento" placeholder="Ej: FAC-000123"></div>
+<div><label>Observaciones</label><input id="entObs" placeholder="Opcional"></div>
+</div>
+<table id="entItems"><thead><tr><th>Código *</th><th>Descripción</th><th>Cantidad *</th><th>Costo unitario *</th><th>Subtotal</th><th class="no-print">Acción</th></tr></thead><tbody></tbody></table>
+<div class="actions no-print"><button class="ok" onclick="addEntItem()">+ Agregar artículo</button> <button class="primary" onclick="guardarEntrada()">Guardar entrada</button> <button onclick="limpiarEntrada()">Limpiar</button></div>
+<p id="entTotal" style="text-align:right;font-weight:bold;margin-top:8px">Total de la entrada: $0.00</p>
+</div>
+
+<div class="card"><h2>Stock actual</h2>
+<div class="actions no-print"><button onclick="cargarInventario()">🔄 Actualizar</button> <input class="search" id="invSearch" placeholder="Buscar código o descripción" oninput="inventarioRender()"> <button class="warn" id="btnSoloBajo" onclick="$('btnSoloBajo').classList.toggle('active');inventarioRender()">Solo stock bajo</button></div>
+<div id="invResumen"></div>
+<div id="invTable"></div>
+</div>
+</section>
+
+<section id="abonos" class="panel">
+<div class="card"><h2>💰 Abonos recibidos</h2>
+<p class="status">Cada abono queda registrado con su fecha, su hora y si fue en efectivo o por transferencia. El saldo de cada factura se descuenta solo con estos registros.</p>
+<div class="filterbar no-print">
+<button class="afilter active" data-a="todos" onclick="setAbonosFiltro('todos')">Todos</button>
+<button class="afilter" data-a="Efectivo" onclick="setAbonosFiltro('Efectivo')">Efectivo</button>
+<button class="afilter" data-a="Transferencia" onclick="setAbonosFiltro('Transferencia')">Transferencia</button>
+</div>
+<div class="actions no-print"><input class="search" id="abonosSearch" placeholder="Buscar factura, cliente o referencia" oninput="abonosRender()"> <button onclick="recargarCobros().then(()=>abonosRender())">🔄 Actualizar</button></div>
+<div id="abonosResumen"></div>
+<div id="abonosBody"></div>
+</div>
+</section>
+
 <div class="modal" id="payModal"><div class="modalbox">
-<h3>Forma de pago</h3>
-<p>Factura No. <b id="payModalNum"></b></p>
+<h3>💰 Registrar abono</h3>
+<p>Factura No. <b id="payModalNum"></b> &nbsp;•&nbsp; Total: <b id="payModalTotal"></b> &nbsp;•&nbsp; Saldo pendiente: <b id="payModalSaldo"></b></p>
+<div class="grid">
+<div><label>Monto del abono *</label><input type="number" id="abonoMonto" step="0.01" min="0" oninput="abonoPreview()"></div>
+<div><label>Forma de pago *</label><select id="abonoForma" onchange="abonoRefVisibility();abonoPreview()"><option value="Efectivo">Efectivo</option><option value="Transferencia">Transferencia</option></select></div>
+<div><label>Fecha del abono</label><input type="date" id="abonoFecha"></div>
+<div><label>Hora del abono</label><input type="time" id="abonoHora"></div>
+<div id="abonoRefWrap" style="display:none"><label>Referencia / comprobante</label><input id="abonoRef" placeholder="Ej: TRANSF-00123 (opcional)"></div>
+<div><label>Notas</label><input id="abonoNotas" placeholder="Opcional"></div>
+</div>
+<p id="abonoPreviewMsg" class="status" style="min-height:18px"></p>
 <div class="actions">
-<button class="primary" onclick="confirmPayment('Transferencia')">Transferencia</button>
-<button class="primary" onclick="confirmPayment('Efectivo')">Efectivo</button>
+<button class="ok" onclick="guardarAbono()">Registrar abono</button>
+<button class="primary" onclick="abonoMontoSaldo()">Abonar el saldo total</button>
 <button onclick="closeModal('payModal')">Cancelar</button>
+</div>
+</div></div>
+
+<div class="modal" id="abonosModal"><div class="modalbox">
+<h3 id="abonosModalTitle">Abonos de la factura</h3>
+<div id="abonosModalBody"></div>
+<div class="actions">
+<button id="abonosModalAbonar" class="ok" onclick="abonosModalAbonar()">Registrar abono</button>
+<button onclick="closeModal('abonosModal')">Cerrar</button>
 </div>
 </div></div>
 
@@ -131,7 +190,7 @@ Gracias por preferirnos, recuerde seguirnos en <a href="https://www.facebook.com
    Pega aquí la URL de tu implementación (Deploy) de Google Apps Script
    (termina en /exec). Ver GUIA_INSTALACION.md para el paso a paso. */
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCvf1AOiUGRuqR7W_a-8t6ERQdEjR3mVjlayuaDwapoOJNN5dYbwWllcF_burJBlH4/exec";
-const ACCIONES_ADMIN = ['updateInvoice','updateQuote','deleteInvoice','deleteQuote','deleteClient','deleteProduct'];
+const ACCIONES_ADMIN = ['updateInvoice','updateQuote','deleteInvoice','deleteQuote','deleteClient','deleteProduct','deleteAbono'];
 
 let sessionToken = null; // vive solo en memoria, nunca en localStorage
 let adminToken = null;   // clave de administrador para editar/eliminar
@@ -184,14 +243,14 @@ async function doLogin(){
     $('btnChangePw').style.display = '';
     $('btnLogout').style.display = '';
     await refreshAllData();
-    lists(); clientsRender(); productsRender(); historyRender();
+    lists(); clientsRender(); productsRender(); historyRender(); abonosRender();
     await newDoc();
   }catch(e){
     $('lockError').textContent = e.message;
   }finally{ hideLoading(); $('lockPassword').value=''; }
 }
 function logout(){
-  sessionToken = null; adminToken = null; connected = false; editing = null;
+  sessionToken = null; adminToken = null; connected = false; editing = null; viewingDoc = null;
   $('connStatus').textContent = '🔒 Bloqueado';
   $('btnChangePw').style.display = 'none';
   $('btnLogout').style.display = 'none';
@@ -216,8 +275,18 @@ async function refreshAllData(){
   db.products = data.products || [];
   db.invoices = data.invoices || [];
   db.quotes = data.quotes || [];
+  db.inventory = data.inventory || [];
+  db.abonos = data.abonos || [];
 }
 async function loadFacturas(){ if(!connected) return; const data = await apiCall('bootstrap'); db.invoices = data.invoices||[]; }
+/* Recarga solo facturas y abonos: un abono no toca el inventario, asi que
+   se evita pedirle al servidor que recalcule todo el stock. */
+async function recargarCobros(){
+  if(!connected) return;
+  const data = await apiCall('bootstrap');
+  db.invoices = data.invoices||[];
+  db.abonos = data.abonos||[];
+}
 async function loadCotizaciones(){ if(!connected) return; const data = await apiCall('bootstrap'); db.quotes = data.quotes||[]; }
 async function nextInvoiceNumber(){ return (await apiCall('peekNextInvoiceNumber')).number; }
 async function nextQuoteNumber(){ return (await apiCall('peekNextQuoteNumber')).number; }
@@ -231,6 +300,7 @@ async function deleteInvoice(number){ return apiCall('deleteInvoice', { number }
 async function deleteQuote(number){ return apiCall('deleteQuote', { number }); }
 async function deleteClient(name){ return apiCall('deleteClient', { name }); }
 async function deleteProduct(code){ return apiCall('deleteProduct', { code }); }
+async function deleteAbono(row){ return apiCall('deleteAbono', { row }); }
 async function loadItemsFor(table, number){
   const action = table === 'tblDetalleFactura' ? 'getInvoiceItems' : 'getQuoteItems';
   return (await apiCall(action, { number })).items;
@@ -241,9 +311,10 @@ const CONDITIONS=`Toda factura al no ser cancelada dentro de 30 días tendrá un
 Gracias por preferirnos, recuerde seguirnos en http://www.facebook.com/JTechCarsPTY
 http://www.instagram.com/JTechCarsPTY`;
 const CKEY='JTECHCARS_CLIENTES_PRODUCTOS_V1';
-let db = JSON.parse(localStorage.getItem(CKEY)||'null') || { invoices:[], quotes:[], clients:[], products:[] };
-let current = {}, docMode='factura', histModeVar='factura', filterVar='todas', editing=null;
+let db = JSON.parse(localStorage.getItem(CKEY)||'null') || { invoices:[], quotes:[], clients:[], products:[], inventory:[], abonos:[] };
+let current = {}, docMode='factura', histModeVar='factura', filterVar='todas', editing=null, viewingDoc=null;
 const $=id=>document.getElementById(id), money=n=>'$'+Number(n||0).toFixed(2), pad=n=>String(n).padStart(2,'0');
+const round2=n=>Math.round((Number(n)||0)*100)/100;
 function iso(d=new Date()){ return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
 function plus(s,days){ let d=new Date(s+'T12:00:00'); d.setDate(d.getDate()+days); return iso(d); }
 function fmt(s){ if(!s) return ''; let a=s.split('-'); return a[1]+'/'+a[2]+'/'+a[0]; }
@@ -299,7 +370,7 @@ function requireAdmin(mensaje, fn){
   $('adminModal').classList.add('show');
   $('adminPassword').focus();
 }
-function tab(id){ document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active')); $(id).classList.add('active'); if(id==='historial') historyRender(); if(id==='clientes') clientsRender(); if(id==='productos') productsRender(); }
+function tab(id){ document.querySelectorAll('.panel').forEach(x=>x.classList.remove('active')); $(id).classList.add('active'); if(id==='historial') historyRender(); if(id==='abonos') abonosRender(); if(id==='clientes') clientsRender(); if(id==='productos') productsRender(); if(id==='inventario') cargarInventario(); }
 
 /* ==================== DOCUMENTO (FACTURA / COTIZACIÓN) ==================== */
 async function openDoc(mode){
@@ -314,6 +385,7 @@ async function openDoc(mode){
 async function newDoc(){
   current = { date: iso() };
   editing = null;
+  viewingDoc = null;   // documento nuevo: sin saldo previo ni abonos
   $('btnSaveDoc').textContent = 'Guardar';
   $('btnCancelEdit').style.display = 'none';
   $('client').value=$('clientId').value=$('contact').value=$('address').value=$('notes').value='';
@@ -325,6 +397,7 @@ async function newDoc(){
   $('discountBox').style.display = docMode==='factura' ? '' : 'none';   // el descuento solo aplica a facturas
   $('useDiscount').checked = false; $('discountPct').value = 0;
   $('discountPctWrap').style.display = 'none';
+  $('docAbonosBox').style.display = 'none';   // una factura nueva todavia no tiene abonos
   calc();
   if(connected){
     try{
@@ -369,7 +442,27 @@ function calc(){
   $('discount').textContent='-'+money(desc);
   $('discountLabel').textContent='Descuento ('+dpct+'%)';
   $('discountLine').style.display = dpct>0 ? '' : 'none';
-  $('tax').textContent=money(tax); $('total').textContent=money(total); $('balance').textContent=money(total);
+  $('tax').textContent=money(tax); $('total').textContent=money(total);
+  // Al abrir una factura ya guardada el saldo no es el total: es lo que
+  // falta despues de restar los abonos que ya tiene registrados.
+  const abonado = docAbonado();
+  const saldo = Math.max(0, round2(total - abonado));
+  $('abonado').textContent=money(abonado);
+  $('abonadoLine').style.display = abonado>0 ? '' : 'none';
+  $('balance').textContent=money(saldo);
+}
+/* Cuanto lleva pagado la factura que se esta viendo (0 si es una nueva).
+   Se apoya en viewingDoc, no en editing, porque el saldo real importa tanto
+   al solo abrir la factura como al editarla. */
+function docAbonado(){
+  if(!(viewingDoc && viewingDoc.mode==='factura')) return 0;
+  const inv = db.invoices.find(v => Number(v.number) === Number(viewingDoc.number));
+  return inv ? (Number(inv.paid)||0) : 0;
+}
+/* La factura guardada que esta abierta, o null si es un documento nuevo. */
+function docFactura(){
+  if(!(viewingDoc && viewingDoc.mode==='factura')) return null;
+  return db.invoices.find(v => Number(v.number) === Number(viewingDoc.number)) || null;
 }
 function collectItems(){
   let items=[...document.querySelectorAll('#items tbody tr')].map(tr=>({
@@ -402,8 +495,9 @@ async function saveDoc(){
         status: prev ? prev.status : 'Pendiente', notes:$('notes').value,
         paymentMethod: prev ? (prev.paymentMethod||'') : '' };
       if(prev) await updateInvoice(prev.number, inv); else await saveInvoiceToExcel(inv);
-      await loadFacturas();
+      await refreshAllData();
       alert((prev?'Factura actualizada: ':'Factura guardada: ')+(prev?prev.number:inv.number)+'.');
+      if(docMode==='factura') avisarStockBajo(c.items);
     }else{
       const prev = editing && editing.mode==='cotizacion' ? db.quotes.find(v=>v.number===editing.number) : null;
       const q = { number:(prev||current).number, date:current.date, due:plus(current.date,15),
@@ -415,6 +509,7 @@ async function saveDoc(){
       alert((prev?'Cotización actualizada: ':'Cotización guardada: ')+(prev?prev.number:q.number)+'.');
     }
     editing = null;
+    viewingDoc = null;
     tab('historial'); histMode(docMode);
   }catch(e){
     if(/clave de administrador/i.test(e.message)){
@@ -434,6 +529,7 @@ async function loadDocForView(mode, number, forEdit){
   const x = list.find(v=>v.number===number); if(!x) return;
   docMode = mode;
   editing = forEdit ? { mode: mode, number: number } : null;
+  viewingDoc = { mode: mode, number: Number(number) };   // sea edicion o solo consulta
   $('docTitle').textContent = mode==='factura' ? 'FACTURA' : 'COTIZACIÓN';
   $('numLabel').textContent = mode==='factura' ? 'Factura No.:' : 'Cotización No.:';
   $('dueLabel').textContent = mode==='factura' ? 'Vencimiento:' : 'Válida hasta:';
@@ -453,6 +549,7 @@ async function loadDocForView(mode, number, forEdit){
     const items = await loadItemsFor(mode==='factura' ? 'tblDetalleFactura' : 'tblDetalleCotizacion', number);
     $('items').querySelector('tbody').innerHTML=''; items.forEach(addItem); calc();
   }finally{ hideLoading(); }
+  renderDocAbonos();
   document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
   $('documento').classList.add('active');
 }
@@ -464,32 +561,41 @@ function histMode(mode){
   $('subFact').classList.toggle('active', mode==='factura');
   $('subCot').classList.toggle('active', mode==='cotizacion');
   $('filterBar').innerHTML = mode==='factura'
-    ? '<button class="ffilter active" data-f="todas" onclick="setFilter(\'todas\')">Todas</button><button class="ffilter" data-f="pendiente" onclick="setFilter(\'pendiente\')">Por pagar</button><button class="ffilter" data-f="pagada" onclick="setFilter(\'pagada\')">Pagadas</button><button class="ffilter" data-f="cancelada" onclick="setFilter(\'cancelada\')">Canceladas</button>'
+    ? '<button class="ffilter active" data-f="todas" onclick="setFilter(\'todas\')">Todas</button><button class="ffilter" data-f="pendiente" onclick="setFilter(\'pendiente\')">Por pagar</button><button class="ffilter" data-f="parcial" onclick="setFilter(\'parcial\')">Abonadas parcialmente</button><button class="ffilter" data-f="pagada" onclick="setFilter(\'pagada\')">Pagadas</button><button class="ffilter" data-f="cancelada" onclick="setFilter(\'cancelada\')">Canceladas</button>'
     : '<button class="ffilter active" data-f="todas" onclick="setFilter(\'todas\')">Todas</button><button class="ffilter" data-f="pendiente" onclick="setFilter(\'pendiente\')">Pendientes</button><button class="ffilter" data-f="convertida" onclick="setFilter(\'convertida\')">Convertidas</button>';
   historyRender();
 }
 function setFilter(f){ filterVar=f; document.querySelectorAll('.ffilter').forEach(b=>b.classList.toggle('active', b.dataset.f===f)); historyRender(); }
 function pillFor(status){ return '<span class="pill '+String(status||'').toLowerCase()+'">'+esc(status)+'</span>'; }
+/* Una factura con saldo y con abonos se muestra como "Parcial", que es mas
+   claro que "Pendiente" cuando el cliente ya pago una parte. */
+function estadoPill(x){
+  const st = String(x.status||'Pendiente');
+  if(st.toLowerCase()==='pendiente' && (Number(x.paid)||0) > 0.004) return '<span class="pill parcial">Parcial</span>';
+  return pillFor(st);
+}
 function historyRender(){
   if(!connected){ $('history').innerHTML='<p>Ingresa la contraseña para ver el historial.</p>'; return; }
   const q=($('invoiceSearch').value||'').toLowerCase();
   let list = histModeVar==='factura' ? db.invoices.slice() : db.quotes.slice();
   list = list.filter(x=>String(x.number).includes(q)||(x.client||'').toLowerCase().includes(q));
-  if(filterVar!=='todas') list = list.filter(x=>String(x.status||'').toLowerCase()===filterVar);
+  if(filterVar==='parcial') list = list.filter(x=>String(x.status||'').toLowerCase()==='pendiente' && (Number(x.paid)||0) > 0.004);
+  else if(filterVar!=='todas') list = list.filter(x=>String(x.status||'').toLowerCase()===filterVar);
   list.sort((a,b)=>b.number-a.number);
   if(!list.length){ $('history').innerHTML='<p>No hay resultados.</p>'; return; }
   if(histModeVar==='factura'){
-    $('history').innerHTML = '<table class="list"><tr><th>Factura</th><th>Fecha</th><th>Cliente</th><th>Subtotal</th><th>Descuento</th><th>ITBMS</th><th>Total</th><th>Estado</th><th>Forma de pago</th><th>Acción</th></tr>'+
+    $('history').innerHTML = '<table class="list"><tr><th>Factura</th><th>Fecha</th><th>Cliente</th><th>Subtotal</th><th>Descuento</th><th>ITBMS</th><th>Total</th><th>Abonado</th><th>Saldo</th><th>Estado</th><th>Forma de pago</th><th>Acción</th></tr>'+
       list.map(x=>{
         const dsc = Number(x.discountPct)>0 ? '<span class="pill pendiente">-'+Number(x.discountPct).toFixed(2).replace(/\.00$/,'')+'%</span>' : '-';
+        const pagado = Number(x.paid)||0, saldo = Number(x.balance)||0;
+        const cancelada = String(x.status||'').toLowerCase()==='cancelada';
         let acts = '<button onclick="loadDocForView(\'factura\','+x.number+')">Abrir</button>';
         acts += ' <button class="warn" onclick="askEdit(\'factura\','+x.number+')">Editar</button>';
-        if((x.status||'').toLowerCase()==='pendiente'){
-          acts += ' <button class="ok" onclick="openPayModal('+x.number+')">Marcar pagada</button>';
-        }
-        acts += ' <button class="danger" onclick="cancelInvoice('+x.number+')">Cancelar</button>';
+        if(!cancelada && saldo > 0.004) acts += ' <button class="ok" onclick="openPayModal('+x.number+')">Abonar</button>';
+        acts += ' <button class="primary" onclick="verAbonos('+x.number+')">Abonos (' + abonosDe(x.number).length + ')</button>';
+        if(!cancelada) acts += ' <button class="danger" onclick="cancelInvoice('+x.number+')">Cancelar</button>';
         acts += ' <button class="danger" onclick="askDeleteDoc(\'factura\','+x.number+')">Eliminar</button>';
-        return '<tr><td>'+x.number+'</td><td>'+fmt(x.date)+'</td><td>'+esc(x.client)+'</td><td>'+money(x.subtotal)+'</td><td>'+dsc+'</td><td>'+money(x.tax)+'</td><td>'+money(x.total)+'</td><td>'+pillFor(x.status)+'</td><td>'+esc(x.paymentMethod||'-')+'</td><td>'+acts+'</td></tr>';
+        return '<tr><td>'+x.number+'</td><td>'+fmt(x.date)+'</td><td>'+esc(x.client)+'</td><td>'+money(x.subtotal)+'</td><td>'+dsc+'</td><td>'+money(x.tax)+'</td><td>'+money(x.total)+'</td><td>'+money(pagado)+'</td><td><b>'+money(saldo)+'</b></td><td>'+estadoPill(x)+'</td><td>'+esc(x.paymentMethod||'-')+'</td><td>'+acts+'</td></tr>';
       }).join('') + '</table>';
   }else{
     $('history').innerHTML = '<table class="list"><tr><th>Cotización</th><th>Fecha</th><th>Cliente</th><th>Total</th><th>Estado</th><th>Acción</th></tr>'+
@@ -515,29 +621,208 @@ function askDeleteDoc(mode, number){
 async function confirmDeleteDoc(mode, number){
   if(!connected) return alert('Ingresa la contraseña primero.');
   const label = mode==='factura' ? 'factura' : 'cotización';
-  if(!confirm('¿Eliminar definitivamente la '+label+' N.º '+number+'? Esta acción no se puede deshacer.')) return;
+  const extra = mode==='factura' && abonosDe(number).length
+    ? '\n\nOjo: la factura tiene ' + abonosDe(number).length + ' abono(s) registrado(s) y se borrarán con ella.' : '';
+  if(!confirm('¿Eliminar definitivamente la '+label+' N.º '+number+'? Esta acción no se puede deshacer.'+extra)) return;
   showLoading('Eliminando '+label+'…');
   try{
-    if(mode==='factura'){ await deleteInvoice(number); await loadFacturas(); }
+    if(mode==='factura'){ await deleteInvoice(number); await recargarCobros(); renderDocAbonos(); abonosRender(); }
     else{ await deleteQuote(number); await loadCotizaciones(); }
     historyRender();
     alert(label.charAt(0).toUpperCase()+label.slice(1)+' '+number+' eliminada.');
   }catch(e){ alert('Error: '+e.message); }
   finally{ hideLoading(); }
 }
-let payingInvoice=null;
-function openPayModal(number){ payingInvoice=number; $('payModalNum').textContent=number; $('payModal').classList.add('show'); }
-async function confirmPayment(method){
-  closeModal('payModal');
-  showLoading('Actualizando factura…');
-  try{ await updateInvoiceStatus(payingInvoice,'Pagada',method); await loadFacturas(); historyRender(); }
-  catch(e){ alert('Error: '+e.message); }
+/* ==================== ABONOS ====================
+   Un abono es un pago del cliente a una factura. Se guarda con su fecha,
+   su hora y su forma de pago (efectivo o transferencia), y puede ser
+   parcial o cubrir todo el saldo. */
+let payingInvoice = null, verAbonosNum = null, abonosFiltro = 'todos';
+const FORMAS_PAGO = ['Efectivo','Transferencia'];
+function abonosDe(number){
+  const n = Number(number);
+  return db.abonos.filter(a => Number(a.number) === n)
+    .sort((a,b) => String(a.date+' '+(a.time||'')).localeCompare(String(b.date+' '+(b.time||''))));
+}
+function clienteDeFactura(number){
+  const inv = db.invoices.find(x => Number(x.number) === Number(number));
+  return inv ? (inv.client||'') : '';
+}
+function pillForma(metodo){
+  const m = String(metodo||'');
+  if(!m) return '<span class="pill pendiente">sin dato</span>';
+  return '<span class="pill '+(m.toLowerCase()==='efectivo'?'efectivo':'transferencia')+'">'+esc(m)+'</span>';
+}
+function horaAhora(){ const d=new Date(); return pad(d.getHours())+':'+pad(d.getMinutes()); }
+
+/* ---------- registrar un abono ---------- */
+function openPayModal(number){
+  if(!connected) return alert('Ingresa la contraseña primero.');
+  const inv = db.invoices.find(x => Number(x.number) === Number(number));
+  if(!inv) return alert('Factura no encontrada.');
+  if(String(inv.status||'').toLowerCase()==='cancelada') return alert('La factura '+number+' está cancelada: no admite abonos.');
+  const saldo = Number(inv.balance)||0;
+  if(saldo <= 0.004) return alert('La factura '+number+' no tiene saldo pendiente.');
+  payingInvoice = Number(number);
+  $('payModalNum').textContent = inv.number;
+  $('payModalTotal').textContent = money(inv.total);
+  $('payModalSaldo').textContent = money(saldo);
+  $('abonoMonto').value = round2(saldo).toFixed(2);
+  $('abonoForma').value = 'Efectivo';
+  $('abonoFecha').value = iso();
+  $('abonoHora').value = horaAhora();
+  $('abonoRef').value = ''; $('abonoNotas').value = '';
+  abonoRefVisibility(); abonoPreview();
+  $('payModal').classList.add('show');
+  $('abonoMonto').focus();
+}
+function abonoRefVisibility(){
+  // La referencia solo tiene sentido cuando el pago fue por transferencia.
+  $('abonoRefWrap').style.display = $('abonoForma').value==='Transferencia' ? '' : 'none';
+}
+function abonoMontoSaldo(){
+  const inv = db.invoices.find(x => Number(x.number) === Number(payingInvoice));
+  if(!inv) return;
+  $('abonoMonto').value = round2(Number(inv.balance)||0).toFixed(2);
+  abonoPreview();
+}
+function abonoPreview(){
+  if(payingInvoice === null) return;
+  const inv = db.invoices.find(x => Number(x.number) === Number(payingInvoice)) || {};
+  const saldo = Number(inv.balance)||0;
+  const monto = round2(Number($('abonoMonto').value)||0);
+  const queda = round2(saldo - monto);
+  if(monto <= 0) $('abonoPreviewMsg').innerHTML = '<span style="color:#a00">Escribe un monto mayor que cero.</span>';
+  else if(queda < -0.005) $('abonoPreviewMsg').innerHTML = '<span style="color:#a00">El monto supera el saldo pendiente ('+money(saldo)+').</span>';
+  else if(queda <= 0.005) $('abonoPreviewMsg').innerHTML = 'Con este abono la factura queda <b>PAGADA</b> por completo.';
+  else $('abonoPreviewMsg').innerHTML = 'Quedará un saldo de <b>'+money(queda)+'</b>.';
+}
+async function guardarAbono(){
+  if(!connected) return alert('Ingresa la contraseña primero.');
+  const monto = round2(Number($('abonoMonto').value)||0);
+  if(monto <= 0) return alert('Escribe el monto del abono (mayor que cero).');
+  const forma = $('abonoForma').value;
+  if(FORMAS_PAGO.indexOf(forma) < 0) return alert('Indica si el abono fue en efectivo o por transferencia.');
+  const factura = payingInvoice;
+  showLoading('Registrando abono…');
+  try{
+    const res = await apiCall('saveAbono', { abono:{
+      number: factura, amount: monto,
+      date: $('abonoFecha').value || iso(),
+      time: $('abonoHora').value || horaAhora(),
+      method: forma,
+      reference: ($('abonoRef').value||'').trim(),
+      notes: ($('abonoNotas').value||'').trim()
+    }});
+    closeModal('payModal');
+    await recargarCobros();
+    historyRender(); renderDocAbonos(); abonosRender(); renderAbonosModal();
+    alert('Abono de '+money(monto)+' registrado ('+forma+') el '+fmt(res.fecha)+' a las '+res.hora+'.\n\nFactura '+factura+': saldo pendiente '+money(res.saldo)+'.');
+  }catch(e){ alert('Error: '+e.message); }
   finally{ hideLoading(); }
 }
+
+/* ---------- ver los abonos de una factura ---------- */
+function verAbonos(number){
+  if(!connected) return alert('Ingresa la contraseña primero.');
+  verAbonosNum = Number(number);
+  $('abonosModalTitle').textContent = 'Abonos de la factura ' + verAbonosNum;
+  renderAbonosModal();
+  $('abonosModal').classList.add('show');
+}
+function renderAbonosModal(){
+  if(verAbonosNum === null) return;
+  const lista = abonosDe(verAbonosNum);
+  const inv = db.invoices.find(x => Number(x.number) === verAbonosNum) || {};
+  const abonado = lista.reduce((s,a)=>s+a.amount, 0);
+  const cancelada = String(inv.status||'').toLowerCase()==='cancelada';
+  const saldo = Number(inv.balance)||0;
+  let html = '<p class="status">Cliente: <b>'+esc(clienteDeFactura(verAbonosNum)||'-')+'</b> &nbsp;•&nbsp; Total: <b>'+money(inv.total||0)+'</b> &nbsp;•&nbsp; Abonado: <b>'+money(abonado)+'</b> &nbsp;•&nbsp; Saldo: <b>'+money(saldo)+'</b></p>';
+  html += lista.length
+    ? '<table class="list"><tr><th>Fecha</th><th>Hora</th><th>Monto</th><th>Forma de pago</th><th>Referencia</th><th>Notas</th><th class="no-print">Acción</th></tr>' +
+      lista.map(a =>
+        '<tr><td>'+fmt(a.date)+'</td><td>'+esc(a.time||'-')+'</td><td><b>'+money(a.amount)+'</b></td><td>'+pillForma(a.method)+'</td>' +
+        '<td>'+esc(a.reference||'-')+'</td><td>'+esc(a.notes||'-')+'</td>' +
+        '<td class="no-print"><button class="danger" onclick="askDeleteAbono('+verAbonosNum+','+a.row+')">Eliminar</button></td></tr>').join('') + '</table>'
+    : '<p>Esta factura todavía no tiene abonos registrados.</p>';
+  $('abonosModalBody').innerHTML = html;
+  $('abonosModalAbonar').style.display = (!cancelada && saldo > 0.004) ? '' : 'none';
+}
+function abonosModalAbonar(){
+  const n = verAbonosNum;
+  closeModal('abonosModal');
+  openPayModal(n);
+}
+function askDeleteAbono(number, row){
+  requireAdmin('Eliminar un abono de la factura N.º '+number+' es una función de administrador y requiere la clave de administrador. El saldo de la factura se recalculará.',
+    ()=>confirmDeleteAbono(number, row));
+}
+async function confirmDeleteAbono(number, row){
+  if(!connected) return alert('Ingresa la contraseña primero.');
+  if(!confirm('¿Eliminar este abono de la factura '+number+'? El saldo de la factura se recalculará.')) return;
+  showLoading('Eliminando abono…');
+  try{
+    const res = await deleteAbono(row);
+    await recargarCobros();
+    historyRender(); renderDocAbonos(); abonosRender(); renderAbonosModal();
+    alert('Abono eliminado. Factura '+number+': saldo pendiente '+money(res.saldo)+'.');
+  }catch(e){ alert('Error: '+e.message); }
+  finally{ hideLoading(); }
+}
+
+/* ---------- panel de abonos ---------- */
+function setAbonosFiltro(f){ abonosFiltro = f; document.querySelectorAll('.afilter').forEach(b => b.classList.toggle('active', b.dataset.a===f)); abonosRender(); }
+function abonosRender(){
+  if(!connected){ $('abonosResumen').innerHTML=''; $('abonosBody').innerHTML='<p>Ingresa la contraseña para ver los abonos.</p>'; return; }
+  const q = ($('abonosSearch').value||'').toLowerCase();
+  const todos = db.abonos.slice().sort((a,b) => String(b.date+' '+(b.time||'')).localeCompare(String(a.date+' '+(b.time||''))) || Number(b.number)-Number(a.number));
+  const suma = lista => lista.reduce((s,a)=>s+a.amount, 0);
+  const efectivo = suma(todos.filter(a => String(a.method||'').toLowerCase()==='efectivo'));
+  const transferencia = suma(todos.filter(a => String(a.method||'').toLowerCase()==='transferencia'));
+  $('abonosResumen').innerHTML =
+    '<p><b>'+todos.length+'</b> abonos &nbsp;•&nbsp; Total cobrado: <b>'+money(suma(todos))+'</b> &nbsp;•&nbsp; ' +
+    '<span class="pill efectivo">Efectivo '+money(efectivo)+'</span> &nbsp; ' +
+    '<span class="pill transferencia">Transferencia '+money(transferencia)+'</span></p>';
+  let vis = todos;
+  if(abonosFiltro !== 'todos') vis = vis.filter(a => String(a.method||'').toLowerCase() === abonosFiltro.toLowerCase());
+  if(q) vis = vis.filter(a => String(a.number).includes(q) || clienteDeFactura(a.number).toLowerCase().includes(q) || String(a.reference||'').toLowerCase().includes(q));
+  if(!vis.length){ $('abonosBody').innerHTML = '<p>No hay abonos para mostrar.</p>'; return; }
+  $('abonosBody').innerHTML = '<table class="list"><tr><th>Factura</th><th>Fecha</th><th>Hora</th><th>Cliente</th><th>Monto</th><th>Forma de pago</th><th>Referencia</th><th>Notas</th><th>Acción</th></tr>' +
+    vis.map(a =>
+      '<tr><td>'+a.number+'</td><td>'+fmt(a.date)+'</td><td>'+esc(a.time||'-')+'</td>' +
+      '<td>'+esc(clienteDeFactura(a.number)||'-')+'</td><td><b>'+money(a.amount)+'</b></td><td>'+pillForma(a.method)+'</td>' +
+      '<td>'+esc(a.reference||'-')+'</td><td>'+esc(a.notes||'-')+'</td>' +
+      '<td class="no-print"><button onclick="loadDocForView(\'factura\','+a.number+')">Abrir</button> ' +
+      '<button class="danger" onclick="askDeleteAbono('+a.number+','+a.row+')">Eliminar</button></td></tr>').join('') + '</table>';
+}
+
+/* ---------- abonos dentro de la factura abierta ---------- */
+function abonarDocActual(){
+  if(!viewingDoc || viewingDoc.mode!=='factura') return alert('Abre primero una factura guardada.');
+  openPayModal(viewingDoc.number);
+}
+function renderDocAbonos(){
+  const box = $('docAbonosBox');
+  const inv = docFactura();   // null si el documento abierto no es una factura guardada
+  if(!inv){ box.style.display = 'none'; $('docAbonos').innerHTML = ''; return; }
+  box.style.display = '';
+  const lista = abonosDe(inv.number);
+  const abonado = lista.reduce((s,a)=>s+a.amount, 0);
+  const cancelada = String(inv.status||'').toLowerCase()==='cancelada';
+  const saldo = Number(inv.balance)||0;
+  let html = '<p class="status">Abonado <b>'+money(abonado)+'</b> &nbsp;•&nbsp; Saldo <b>'+money(saldo)+'</b>' +
+    (cancelada ? ' &nbsp;•&nbsp; <span class="pill cancelada">Factura cancelada</span>' : '') + '</p>';
+  html += lista.length
+    ? '<table class="list"><tr><th>Fecha</th><th>Hora</th><th>Monto</th><th>Forma de pago</th><th>Referencia</th></tr>' +
+      lista.map(a => '<tr><td>'+fmt(a.date)+'</td><td>'+esc(a.time||'-')+'</td><td>'+money(a.amount)+'</td><td>'+pillForma(a.method)+'</td><td>'+esc(a.reference||'-')+'</td></tr>').join('') + '</table>'
+    : '<p class="status">Todavía no tiene abonos registrados.</p>';
+  $('docAbonos').innerHTML = html;
+  $('btnAbonarDoc').style.display = (!cancelada && saldo > 0.004) ? '' : 'none';
+}
 async function cancelInvoice(number){
-  if(!confirm('¿Cancelar (anular) la factura '+number+'?')) return;
+  if(!confirm('¿Cancelar (anular) la factura '+number+'? Los abonos registrados se conservan como historial.')) return;
   showLoading('Cancelando factura…');
-  try{ await updateInvoiceStatus(number,'Cancelada',''); await loadFacturas(); historyRender(); }
+  try{ await updateInvoiceStatus(number,'Cancelada',''); await recargarCobros(); historyRender(); abonosRender(); renderDocAbonos(); }
   catch(e){ alert('Error: '+e.message); }
   finally{ hideLoading(); }
 }
@@ -558,6 +843,147 @@ async function convertQuote(number){
     await Promise.all([loadFacturas(), loadCotizaciones()]);
     alert('Factura '+newNum+' generada desde la cotización '+number+'.');
     histMode('factura');
+  }catch(e){ alert('Error: '+e.message); }
+  finally{ hideLoading(); }
+}
+
+/* Avisa cuando la venta deja un artículo en o por debajo del mínimo */
+function avisarStockBajo(items){
+  const bajos = [];
+  items.forEach(it => {
+    const code = (it.code||'').trim();
+    if(!code) return;
+    const inv = db.inventory.find(y => String(y.code).toLowerCase() === code.toLowerCase());
+    if(inv && inv.estado === 'BAJO'){
+      bajos.push(inv.code + ' — quedan ' + inv.stock + (inv.minStock ? ' (mínimo ' + inv.minStock + ')' : ''));
+    }
+  });
+  if(bajos.length){
+    alert('⚠️ Stock bajo después de esta venta:\n\n' + bajos.join('\n') + '\n\nRecuerda registrar la entrada de mercancía en la pestaña Inventario.');
+  }
+}
+
+/* ==================== INVENTARIO ==================== */
+async function cargarInventario(){
+  if(!connected) return;
+  if(!$('entFecha').value) $('entFecha').value = iso();
+  if(!$('entItems').querySelector('tbody').children.length) addEntItem();
+  try{
+    const data = await apiCall('getInventario');
+    db.inventory = data.inventario || [];
+    inventarioRender();
+  }catch(e){ $('invTable').innerHTML = '<p style="color:#a00">Error: '+esc(e.message)+'</p>'; }
+}
+function inventarioRender(){
+  const q = ($('invSearch').value || '').toLowerCase();
+  const soloBajo = $('btnSoloBajo').classList.contains('active');
+  let list = db.inventory.slice();
+  if(q) list = list.filter(x => String(x.code).toLowerCase().includes(q) || String(x.desc).toLowerCase().includes(q));
+  if(soloBajo) list = list.filter(x => x.estado === 'BAJO');
+  list.sort((a,b) => String(a.code).localeCompare(String(b.code)));
+
+  const bajos = db.inventory.filter(x => x.estado === 'BAJO').length;
+  const valorCosto = db.inventory.reduce((s,x) => s + x.stock * x.costo, 0);
+  const valorVenta = db.inventory.reduce((s,x) => s + x.stock * x.price, 0);
+  $('invResumen').innerHTML =
+    '<p><b>' + db.inventory.length + '</b> artículos &nbsp;•&nbsp; ' +
+    (bajos > 0
+      ? '<span class="pill pendiente">' + bajos + ' con stock bajo</span>'
+      : '<span class="pill pagada">Todo el stock en nivel</span>') +
+    ' &nbsp;•&nbsp; Valor a costo: <b>' + money(valorCosto) + '</b> &nbsp;•&nbsp; Valor a precio de venta: <b>' + money(valorVenta) + '</b></p>';
+
+  if(!list.length){ $('invTable').innerHTML = '<p>No hay artículos para mostrar.</p>'; return; }
+  $('invTable').innerHTML = '<table class="list"><tr><th>Código</th><th>Descripción</th><th>Entradas</th><th>Salidas</th><th>Stock</th><th>Costo prom.</th><th>Precio</th><th>ITBMS</th><th>Mínimo</th><th>Estado</th></tr>' +
+    list.map(x =>
+      '<tr' + (x.estado === 'BAJO' ? ' style="background:#fff4e5"' : '') + '>' +
+      '<td>' + esc(x.code) + '</td><td>' + esc(x.desc) + '</td>' +
+      '<td>' + x.entradas + '</td><td>' + x.salidas + '</td>' +
+      '<td><b>' + x.stock + '</b></td>' +
+      '<td>' + money(x.costo) + '</td><td>' + money(x.price) + '</td><td>' + x.tax + '%</td>' +
+      '<td><input type="number" style="width:70px;padding:3px" min="0" value="' + x.minStock + '" onchange="actualizarStockMin(\'' + esc(x.code) + '\',this.value)"></td>' +
+      '<td>' + (x.estado === 'BAJO' ? '<span class="pill pendiente">BAJO</span>' : '<span class="pill pagada">OK</span>') + '</td></tr>'
+    ).join('') + '</table>';
+}
+async function actualizarStockMin(code, valor){
+  try{
+    await apiCall('setStockMin', { code:code, minStock:+valor || 0 });
+    await refreshAllData();
+    inventarioRender();
+  }catch(e){ alert('Error: '+e.message); }
+}
+
+/* ---------- formulario de entrada de mercancía ---------- */
+function addEntItem(item={}){
+  const tbody = $('entItems').querySelector('tbody');
+  const tr = document.createElement('tr');
+  tr.innerHTML =
+    '<td><input list="productCodes" class="entCode" placeholder="Código" value="'+esc(item.code||'')+'" oninput="entLookup(this)"></td>' +
+    '<td><input class="entDesc" placeholder="Descripción" value="'+esc(item.desc||'')+'"></td>' +
+    '<td><input type="number" step="0.01" min="0" class="entCant" value="'+(item.cantidad!=null?item.cantidad:1)+'" oninput="entTotal()"></td>' +
+    '<td><input type="number" step="0.01" min="0" class="entCosto" value="'+(item.costo||'')+'" oninput="entTotal()"></td>' +
+    '<td class="entSub">$0.00</td>' +
+    '<td class="no-print"><button class="danger" onclick="this.closest(\'tr\').remove();entTotal()">Quitar</button></td>';
+  tbody.appendChild(tr);
+  entTotal();
+}
+function entLookup(input){
+  const code = (input.value||'').toLowerCase();
+  const p = db.products.find(x => String(x.code).toLowerCase() === code);
+  const tr = input.closest('tr');
+  if(p){
+    tr.querySelector('.entDesc').value = p.desc;
+    if(!tr.querySelector('.entCosto').value) tr.querySelector('.entCosto').value = p.costo || '';
+    entTotal();
+  }
+}
+function entTotal(){
+  let t = 0;
+  document.querySelectorAll('#entItems tbody tr').forEach(tr => {
+    const c = +tr.querySelector('.entCant').value || 0;
+    const v = +tr.querySelector('.entCosto').value || 0;
+    const s = c * v;
+    tr.querySelector('.entSub').textContent = money(s);
+    t += s;
+  });
+  $('entTotal').textContent = 'Total de la entrada: ' + money(t);
+}
+function limpiarEntrada(){
+  $('entItems').querySelector('tbody').innerHTML = '';
+  ['entProveedor','entDocumento','entObs'].forEach(id => $(id).value = '');
+  addEntItem();
+  entTotal();
+}
+async function guardarEntrada(){
+  if(!connected) return alert('Ingresa la contraseña primero.');
+  const proveedor = ($('entProveedor').value||'').trim();
+  if(!proveedor) return alert('Ingresa el nombre del proveedor.');
+  const items = [];
+  let faltan = [];
+  document.querySelectorAll('#entItems tbody tr').forEach((tr,i) => {
+    const code = (tr.querySelector('.entCode').value||'').trim();
+    const desc = (tr.querySelector('.entDesc').value||'').trim();
+    const cantidad = +tr.querySelector('.entCant').value || 0;
+    const costo = +tr.querySelector('.entCosto').value || 0;
+    if(!code) faltan.push('Fila ' + (i+1) + ': falta el código.');
+    else if(cantidad <= 0) faltan.push('Fila ' + (i+1) + ': la cantidad debe ser mayor que cero.');
+    else items.push({ code:code, desc:desc, cantidad:cantidad, costo:costo });
+  });
+  if(faltan.length) return alert(faltan.join('\n'));
+  if(!items.length) return alert('Agrega al menos un artículo.');
+
+  showLoading('Guardando entrada…');
+  try{
+    await apiCall('saveEntrada', { entrada:{
+      fecha: $('entFecha').value || iso(),
+      proveedor: proveedor,
+      documento: ($('entDocumento').value||'').trim(),
+      observaciones: ($('entObs').value||'').trim(),
+      items: items
+    }});
+    await refreshAllData();
+    limpiarEntrada();
+    inventarioRender();
+    alert('Entrada registrada. El stock ya quedó actualizado.');
   }catch(e){ alert('Error: '+e.message); }
   finally{ hideLoading(); }
 }
@@ -707,24 +1133,35 @@ async function confirmDeleteClient(i){
 async function productSave(){
   if(!connected) return alert('Ingresa la contraseña primero.');
   let c=$('pCode').value.trim(); if(!c) return alert('Ingrese el código/item.');
-  let o={code:c,desc:$('pDesc').value,price:+$('pPrice').value||0,tax:+$('pTax').value||0};
+let o={code:c,desc:$('pDesc').value,price:+$('pPrice').value||0,tax:+$('pTax').value||0,
+         minStock:+$('pMin').value||0,costo:+$('pCosto').value||0};
   showLoading('Guardando producto…');
   try{
     const prevCode = $('pCode').dataset.original || '';
-    if(prevCode && prevCode.toLowerCase() !== c.toLowerCase()) await deleteProduct(prevCode); // se renombró el código
+    if(prevCode && prevCode.toLowerCase() !== c.toLowerCase()) await deleteProduct(prevCode); // se renombro el código
     await apiCall('saveProduct', { product:o });
     await refreshAllData();
-    ['pCode','pDesc','pPrice'].forEach(id=>$(id).value=''); $('pTax').value=0; delete $('pCode').dataset.original;
+    delete $('pCode').dataset.original;
     cancelEditProduct();
     productsRender(); lists(); alert('Producto guardado.');
   }catch(e){ alert('Error: '+e.message); }
   finally{ hideLoading(); }
 }
 function productsRender(){
+  const stockDe = code => {
+    const inv = db.inventory.find(y => String(y.code).toLowerCase() === String(code).toLowerCase());
+    return inv ? inv.stock : 0;
+  };
   $('productTable').innerHTML = db.products.length
-    ? '<table class="list"><tr><th>Código</th><th>Descripción</th><th>Precio</th><th>ITBMS</th><th>Acción</th></tr>'+db.products.map((x,i)=>
-        '<tr><td>'+esc(x.code)+'</td><td>'+esc(x.desc)+'</td><td>'+money(x.price)+'</td><td>'+x.tax+'%</td>'+
-        '<td><button class="warn" onclick="askEditProduct('+i+')">Editar</button> <button class="danger" onclick="askDeleteProduct('+i+')">Eliminar</button></td></tr>').join('')+'</table>'
+    ? '<table class="list"><tr><th>Código</th><th>Descripción</th><th>Costo</th><th>Precio</th><th>ITBMS</th><th>Stock</th><th>Mínimo</th><th>Acción</th></tr>'+db.products.map((x,i)=>{
+        const st = stockDe(x.code);
+        const bajo = x.minStock>0 && st <= x.minStock;
+        return '<tr'+(bajo?' style="background:#fff4e5"':'')+'>'+
+        '<td>'+esc(x.code)+'</td><td>'+esc(x.desc)+'</td>'+
+        '<td>'+(x.costo?money(x.costo):'-')+'</td><td>'+money(x.price)+'</td><td>'+x.tax+'%</td>'+
+        '<td><b>'+st+'</b>'+(bajo?' <span class="pill pendiente">bajo</span>':'')+'</td><td>'+(x.minStock||'-')+'</td>'+
+        '<td><button class="warn" onclick="askEditProduct('+i+')">Editar</button> <button class="danger" onclick="askDeleteProduct('+i+')">Eliminar</button></td></tr>';
+      }).join('')+'</table>'
     : '<p>No hay productos.</p>';
 }
 function askEditProduct(i){
@@ -741,13 +1178,14 @@ function editProduct(i){
   if(!connected) return alert('Ingresa la contraseña primero.');
   const x = db.products[i]; if(!x) return;
   $('pCode').value=x.code; $('pDesc').value=x.desc; $('pPrice').value=x.price; $('pTax').value=x.tax;
+  $('pCosto').value=x.costo||0; $('pMin').value=x.minStock||0;
   $('pCode').dataset.original = x.code;
   $('btnProduct').textContent = 'Actualizar producto'; $('productEditHint').style.display='';
   $('btnCancelProduct').style.display='';
   $('pCode').focus();
 }
 function cancelEditProduct(){
-  ['pCode','pDesc','pPrice'].forEach(id=>$(id).value=''); $('pTax').value=0;
+  ['pCode','pDesc','pPrice','pMin'].forEach(id=>$(id).value=''); $('pTax').value=0; $('pCosto').value=0;
   delete $('pCode').dataset.original;
   $('btnProduct').textContent='Guardar producto'; $('productEditHint').style.display='none';
   $('btnCancelProduct').style.display='none';
