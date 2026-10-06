@@ -1,0 +1,930 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JTech &amp; Cars - Ventas y Pedidos</title>
+<meta name="description" content="Registro de pedidos de venta con apartado de mercancia, control de existencias y conversion a factura.">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eee;font-family:Arial;color:#222}
+.app{max-width:1250px;margin:18px auto;background:#fff;box-shadow:0 2px 12px #aaa}
+.bar{background:#222;color:#fff;padding:12px 18px}.connbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#connStatus{font-size:13px;opacity:.85}.connbar button{background:#fff;color:#222}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;background:#f3f3f3;padding:12px 18px}
+button{padding:9px 13px;border:0;border-radius:5px;cursor:pointer;font-weight:bold}
+.primary{background:#222;color:#fff}.azul{background:#005A82;color:#fff}.danger{background:#a00;color:#fff}
+.ok{background:#2a7;color:#fff}.warn{background:#b58900;color:#fff}.gris{background:#eee;color:#222;font-weight:normal}
+.panel{display:none;padding:24px}.active{display:block}
+h2.seccion{margin:0 0 4px;font-size:19px;color:#005A82}h3.seccion{margin:0 0 10px;font-size:16px;color:#005A82}
+.aviso{font-size:13px;color:#666;margin:0 0 16px}
+label{font-weight:bold;font-size:13px;display:block}
+input,textarea,select{width:100%;padding:8px;border:1px solid #aaa;border-radius:4px;margin-top:5px;font:inherit}
+textarea{min-height:70px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}
+.grid.dos{grid-template-columns:1fr 1fr}
+table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #aaa;padding:7px;text-align:left;vertical-align:top}
+th{background:#eee;font-size:13px}
+.num{text-align:right;white-space:nowrap}
+.list button{padding:5px 8px;font-size:12px;margin:2px 0}
+.list td,.list th{border-left:0;border-right:0}
+.acciones{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;color:#fff;white-space:nowrap}
+.pill.borrador{background:#777}.pill.confirmado{background:#b58900}.pill.facturado{background:#2a7}.pill.anulado{background:#a00}
+.pill.bajo{background:#a00}.pill.okb{background:#2a7}
+.filterbar{display:flex;gap:6px;margin:6px 0 14px;flex-wrap:wrap;align-items:center}
+.filterbar button{background:#eee;color:#222;font-weight:normal;font-size:13px}
+.filterbar button.active{background:#222;color:#fff}
+.buscador{flex:1;min-width:190px;max-width:320px;margin:0!important}
+.resumen{max-width:330px;margin:14px 0 14px auto}
+.resumen div{display:flex;justify-content:space-between;padding:6px}
+.grande{border-top:2px solid #005A82;font-size:18px}
+.nota{font-size:12.5px;color:#666;line-height:1.7}
+.alerta{border:1px solid #b58900;background:#fff8e5;padding:11px 13px;border-radius:6px;margin:12px 0;font-size:13px;line-height:1.7}
+.alerta b{display:block;margin-bottom:5px}
+.alerta.lista{margin:0 0 14px}
+.alerta ul{margin:5px 0 0;padding-left:19px}
+.disponible-alto{color:#2a7;font-weight:bold}.disponible-bajo{color:#a00;font-weight:bold}
+.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center;z-index:999}
+.modal.show{display:flex}
+.modalbox{background:#fff;padding:20px;max-width:720px;width:92%;border-radius:6px;max-height:92vh;overflow:auto}
+#loadingOverlay{display:none;position:fixed;inset:0;background:#0009;align-items:center;justify-content:center;color:#fff;font-size:17px;z-index:1000}
+#loadingOverlay.show{display:flex}
+.doc{border:1px solid #005A82;padding:26px 34px}
+.doc .cabeza{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #005A82;padding-bottom:13px;gap:12px}
+.doc h1{margin:0 0 6px;color:#005A82;font-size:24px}
+.doc .meta{text-align:right;line-height:1.85;white-space:nowrap;font-size:14px}
+.doc .meta b{color:#005A82}
+.condiciones{margin-top:14px;padding:12px;border:1px solid #bbb;background:#f7f7f7;line-height:1.6;font-size:13px}
+.condiciones a{color:#222}
+.solapa{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:#555;margin-bottom:12px}
+#userBadge{font-size:13px;background:#005A82;color:#fff;padding:3px 10px;border-radius:11px;display:none}
+/* Aviso de datos viejos: si el sistema lleva un rato abierto, lo que hay en
+   pantalla puede ya no ser lo que guardó otra persona. */
+#staleBar{display:none;padding:11px 18px;background:#fff4d6;border-bottom:1px solid #e0b95a;color:#6b4c00;align-items:center;gap:12px;flex-wrap:wrap}
+#staleBar.show{display:flex}#staleBar button{background:#b58900;color:#fff}
+#avisosLogin{display:none;margin:0 0 12px;padding:10px 12px;border:1px solid #e0b95a;background:#fff9e8;border-radius:5px;font-size:13px;line-height:1.5}
+#avisosLogin.show{display:block}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+@media(max-width:820px){.grid{grid-template-columns:1fr 1fr}.grid.dos{grid-template-columns:1fr}}
+@media(max-width:520px){.grid{grid-template-columns:1fr}.doc{padding:16px}.doc .cabeza{flex-direction:column}.doc .meta{text-align:left;white-space:normal}}
+@media print{body{background:#fff}.app{margin:0;box-shadow:none}.bar,.tabs,.no-print{display:none!important}
+  .panel{padding:0}.panel.active .oculto-print{display:none!important}.doc{border:0;padding:0}@page{margin:10mm}}
+</style></head><body>
+<div class="app">
+
+  <!-- ============ ENCABEZADO ============ -->
+  <div class="bar no-print"><div class="connbar">
+    <b>JTech &amp; Cars — Ventas y Pedidos</b>
+    <span id="connStatus">🔒 Bloqueado</span>
+    <span id="userBadge"></span>
+    <span class="no-print"><button onclick="logout()">Cerrar sesión</button></span>
+  </div></div>
+  <div id="staleBar" class="no-print"><b>⏳ Estos datos tienen algunos minutos de atraso.</b><span id="staleWhen"></span> <span id="staleWho"></span> <button onclick="cargar()">🔄 Actualizar ahora</button><button class="primary" onclick="cerrarAvisoViejo()">Seguir viendo así</button></div>
+
+  <div class="tabs no-print">
+    <button onclick="tab('pedidos')">Pedidos</button>
+    <button onclick="nuevoPedido()">+ Nuevo pedido</button>
+    <button onclick="tab('apartados')">Inventario y apartados</button>
+    <button id="tabRecargas" onclick="abrirRecargas()" style="display:none">📱 Recargas</button>
+  </div>
+
+  <!-- ============ LISTA DE PEDIDOS ============ -->
+  <section id="pedidos" class="panel active">
+    <h2 class="seccion">Pedidos de venta</h2>
+    <p class="aviso">Un pedido <b>confirmado</b> aparta la mercancía: esa cantidad deja de estar disponible hasta que el pedido se facture o se anule.</p>
+    <div class="filterbar no-print">
+      <button class="active" data-filtro="Todos" onclick="filtrar('Todos',this)">Todos</button>
+      <button data-filtro="Borrador" onclick="filtrar('Borrador',this)">Borrador</button>
+      <button data-filtro="Confirmado" onclick="filtrar('Confirmado',this)">Confirmado</button>
+      <button data-filtro="Facturado" onclick="filtrar('Facturado',this)">Facturado</button>
+      <button data-filtro="Anulado" onclick="filtrar('Anulado',this)">Anulado</button>
+      <input class="buscador" id="buscar" aria-label="Buscar pedidos por número, cliente o vendedor" placeholder="Buscar por número, cliente o vendedor" oninput="pintarPedidos()">
+      <button onclick="cargar()" class="gris">🔄 Actualizar</button>
+    </div>
+    <table class="list"><thead><tr>
+      <th>Nº</th><th>Fecha</th><th>Cliente</th><th>Vendedor</th><th>Entrega</th><th class="num">Total</th><th>Estado</th><th>Factura</th><th>Acciones</th>
+    </tr></thead><tbody id="tbodyPedidos"></tbody></table>
+    <p id="vacioPedidos" class="nota" style="display:none">Todavía no hay pedidos con este filtro.</p>
+  </section>
+
+  <!-- ============ FORMULARIO DE PEDIDO ============ -->
+  <section id="editor" class="panel">
+    <div class="oculto-print">
+      <h2 class="seccion" id="tituloEditor">Nuevo pedido</h2>
+      <div class="solapa" id="solapaEditor"></div>
+    </div>
+
+    <div class="doc">
+      <div class="cabeza">
+        <div><h1 id="negocio">JTech &amp; Cars</h1><div class="nota" id="negocioDatos"></div></div>
+        <div class="meta">
+          <b id="tipoDoc">PEDIDO DE VENTA</b><br>
+          <b>Nº:</b> <span id="pNumero">—</span><br>
+          <b>Fecha:</b> <span id="pFecha"></span><br>
+          <b>Entrega:</b> <span id="pEntrega"></span><br>
+          <b>Estado:</b> <span id="pEstado"></span>
+        </div>
+      </div>
+
+      <div class="grid dos oculto-print">
+        <div><label for="pCliente">Cliente *</label><input id="pCliente" list="listaClientes" oninput="buscarCliente(this.value)" autocomplete="off"><datalist id="listaClientes"></datalist></div>
+        <div><label for="pRuc">RUC / ID</label><input id="pRuc"></div>
+        <div><label for="pContacto">Teléfono / Correo</label><input id="pContacto"></div>
+        <div><label for="pDireccion">Dirección</label><input id="pDireccion"></div>
+        <div><label for="pVendedor">Vendedor</label><input id="pVendedor" list="listaVendedores" placeholder="Nombre de quien vende"><datalist id="listaVendedores"></datalist></div>
+        <div><label for="pFechaInput">Fecha del pedido</label><input type="date" id="pFechaInput" onchange="refrescarEncabezado()"></div>
+        <div><label for="pEntregaInput">Fecha de entrega</label><input type="date" id="pEntregaInput" onchange="refrescarEncabezado()"></div>
+        <div><label for="pEstadoInput">Estado</label><select id="pEstadoInput" onchange="pintarEncabezado()">
+          <option value="Borrador">Borrador — todavía no aparta mercancía</option>
+          <option value="Confirmado">Confirmado — aparta la mercancía</option>
+          <option value="Anulado">Anulado — libera la mercancía</option>
+        </select></div>
+      </div>
+
+      <table><thead><tr>
+        <th style="width:26%">Artículo / Código</th><th style="width:11%">Cantidad</th><th>Descripción</th>
+        <th style="width:14%">Precio</th><th style="width:9%">ITBMS %</th><th style="width:14%" class="num">Total</th>
+        <th class="oculto-print" style="width:7%"></th>
+      </tr></thead><tbody id="tbodyItems"></tbody></table>
+
+      <div class="acciones oculto-print">
+        <button class="azul" onclick="agregarItem()">+ Agregar artículo</button>
+        <span class="no-print" style="flex:1"></span>
+        <button class="primary" id="btnGuardar" onclick="guardarPedido()">Guardar pedido</button>
+        <button class="gris" onclick="prepararImpresion()">🖨 Imprimir / PDF</button>
+        <button class="gris" onclick="volverALista()">Volver a la lista</button>
+      </div>
+
+      <div class="resumen">
+        <div><span>Subtotal</span><b id="pSubtotal">$0.00</b></div>
+        <div><span>ITBMS</span><b id="pItbms">$0.00</b></div>
+        <div class="grande"><span>Total</span><b id="pTotal">$0.00</b></div>
+      </div>
+
+      <label class="oculto-print">Notas del pedido</label>
+      <textarea id="pNotas" class="oculto-print" placeholder="Observaciones internas o para el cliente..."></textarea>
+
+      <div class="condiciones">
+        <b>Condiciones:</b><br>
+        La mercancía de este pedido queda apartada al confirmarlo y se libera si el pedido se anula.<br>
+        Gracias por preferirnos, recuerde seguirnos en
+        <a href="https://www.facebook.com/JTechCarsPTY" target="_blank">facebook.com/JTechCarsPTY</a> ·
+        <a href="https://www.instagram.com/JTechCarsPTY" target="_blank">instagram.com/JTechCarsPTY</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ INVENTARIO Y APARTADOS ============ -->
+  <section id="apartados" class="panel">
+    <h2 class="seccion">Inventario y mercancía apartada</h2>
+    <p class="aviso"><b>Stock</b> es lo que hay en bodega. <b>Apartado</b> es lo que los pedidos ya confirmados tienen asignado.
+       <b>Disponible</b> es lo que realmente se puede vender: stock menos apartado.</p>
+    <div class="filterbar no-print">
+      <input class="buscador" id="buscarInv" aria-label="Buscar artículos del inventario" placeholder="Buscar artículo" oninput="pintarInventario()">
+      <label for="soloBajo" style="display:flex;align-items:center;gap:6px;font-weight:normal;margin:0"><input type="checkbox" id="soloBajo" onchange="pintarInventario()" style="width:auto;margin:0"> Solo artículos con existencias bajas</label>
+      <button class="gris" onclick="cargar()">🔄 Actualizar</button>
+    </div>
+    <table class="list"><thead><tr>
+      <th>Código</th><th>Artículo</th><th class="num">Stock</th><th class="num">Apartado</th>
+      <th class="num">Disponible</th><th class="num">Mínimo</th><th>Situación</th>
+    </tr></thead><tbody id="tbodyInventario"></tbody></table>
+    <p id="vacioInventario" class="nota" style="display:none">No hay artículos que coincidan.</p>
+  </section>
+</div>
+
+<datalist id="listaProductos"></datalist>
+
+<!-- ============ PANTALLA DE ACCESO ============ -->
+<div class="modal show" id="lockScreen"><div class="modalbox">
+  <h3>🔒 Acceso restringido</h3>
+  <p>Ingresa tu usuario y tu contraseña para ver y registrar pedidos.</p>
+  <div id="avisosLogin"></div>
+  <label for="lockUser">Usuario</label>
+  <input id="lockUser" autocapitalize="none" autocomplete="username" placeholder="Tu usuario (si lo tienes)" onkeydown="if(event.key==='Enter')entrar()">
+  <label for="lockPassword">Contraseña</label>
+  <input type="password" id="lockPassword" autocomplete="current-password" onkeydown="if(event.key==='Enter')entrar()">
+  <p class="nota" style="margin-top:6px">Si dejas el usuario vacío entras con la contraseña general del sistema.</p>
+  <p id="lockError" style="color:#a00;font-size:13px;min-height:18px"></p>
+  <div class="acciones"><button class="primary" onclick="entrar()">Entrar</button></div>
+</div></div>
+
+<!-- ============ CLAVE DE ADMINISTRADOR ============ -->
+<div class="modal" id="adminModal"><div class="modalbox">
+  <h3>🔐 Función de administrador</h3>
+  <p id="adminPrompt">Esta acción está reservada para el administrador.</p>
+  <label for="adminPassword">Clave de administrador</label>
+  <input type="password" id="adminPassword" onkeydown="if(event.key==='Enter')confirmarAdmin()">
+  <p id="adminError" style="color:#a00;font-size:13px;min-height:18px"></p>
+  <div class="acciones">
+    <button class="primary" onclick="confirmarAdmin()">Verificar y continuar</button>
+    <button class="gris" onclick="cerrarModal('adminModal')">Cancelar</button>
+  </div>
+</div></div>
+
+<!-- ============ FACTURAR PEDIDO ============ -->
+<div class="modal" id="facturarModal"><div class="modalbox">
+  <h3>Facturar pedido <span id="fNumero"></span></h3>
+  <p class="nota">Se emitirá una factura con los datos del pedido. El pedido quedará marcado como <b>Facturado</b> y la mercancía la descontará la factura (no se descuenta dos veces).</p>
+  <div class="grid">
+    <div><label for="fFecha">Fecha de la factura</label><input type="date" id="fFecha"></div>
+    <div><label for="fVence">Vencimiento</label><input type="date" id="fVence"></div>
+    <div><label for="fPago">Forma de pago</label><select id="fPago"><option>Efectivo</option><option>Transferencia</option></select></div>
+  </div>
+  <p id="fError" style="color:#a00;font-size:13px;min-height:18px"></p>
+  <div class="acciones">
+    <button class="ok" onclick="confirmarFacturacion()">Emitir factura</button>
+    <button class="gris" onclick="cerrarModal('facturarModal')">Cancelar</button>
+  </div>
+</div></div>
+
+<div id="loadingOverlay"><div>Cargando…</div></div>
+<div id="avisoVivo" style="position:fixed;right:16px;bottom:16px;z-index:1200;display:flex;flex-direction:column;gap:8px"></div>
+
+<script>
+/* ======================================================================
+   MODULO DE VENTAS: PEDIDOS QUE APARTAN LA MERCANCIA
+   Usa la misma contraseña y la misma base de datos que el panel de
+   Facturación. Los pedidos confirmados reservan existencias y pueden
+   convertirse en factura con un clic, sin volver a escribir el pedido.
+   ====================================================================== */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCvf1AOiUGRuqR7W_a-8t6ERQdEjR3mVjlayuaDwapoOJNN5dYbwWllcF_burJBlH4/exec";
+/* Acciones que exigen la clave de administrador: modificar o borrar algo
+   que ya esta escrito. Crear un pedido nuevo es igual que crear una
+   factura, no hace falta clave. */
+const ACCIONES_ADMIN = ['savePedido', 'deletePedido'];
+const ESTADOS = ['Borrador', 'Confirmado', 'Facturado', 'Anulado'];
+
+/* ---------- TRABAJO DE VARIAS PERSONAS A LA VEZ ---------- */
+const MARCA_OCUPADO = 'SISTEMA_OCUPADO';   // lo pone el servidor si el candado está tomado
+const REINTENTOS_OCUPADO = 3;
+const ESPERAS_OCUPADO = [900, 2000, 3500]; // se respeta el orden de los intentos
+const MINUTOS_VIEJOS = 3;                  // a los 3 min se avisa que los datos están viejos
+let sesion = null;         // { usuario, nombre, rol, soyAdmin }
+let datosCargadosEn = 0;   // momento en que el servidor nos dio la información
+let relojViejos = null;    // reloj que revisa la vigencia de los datos
+const dormir = ms => new Promise(r => setTimeout(r, ms));
+
+let sessionToken = null;   // vive solo en memoria, nunca en localStorage
+let adminToken = null;
+let conectado = false;
+
+let db = { config:{}, clients:[], products:[], inventory:[], pedidos:[], vendedores:[] };
+let filtroActual = 'Todos';
+let editando = null;      // null = pedido nuevo; objeto = pedido abierto
+let itemsEdicion = [];    // lineas del pedido que se esta editando
+let pedidoPendiente = null;   // pedido que se esta por facturar
+
+const $ = id => document.getElementById(id);
+
+/* ==================== CAPA DE COMUNICACIÓN ====================
+   Se envía el body sin forzar Content-Type "application/json" para que el
+   navegador use "text/plain": así Apps Script no exige una petición OPTIONS
+   previa, que los Web Apps de Apps Script no soportan. */
+async function apiCallUna(action, payload){
+  payload = payload || {};
+  if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('PEGA_AQUI') === 0){
+    throw new Error('Falta configurar APPS_SCRIPT_URL con la URL de tu Web App de Google Apps Script.');
+  }
+  let res;
+  try{
+    res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: action, token: sessionToken, adminToken: adminToken, ...payload })
+    });
+  }catch(err){
+    throw new Error('No se pudo conectar con el servidor. Revisa tu internet, que el Web App siga desplegado y recarga la pagina con Ctrl+F5.');
+  }
+  if(!res.ok) throw new Error('Error de red (' + res.status + ') al contactar el servidor.');
+  let data;
+  try{
+    data = await res.json();
+  }catch(err){
+    throw new Error('El servidor no devolvio una respuesta valida. Si te pide iniciar sesion con Google, el Web App no es publico: en Apps Script ve a Implementar > Administrar implementaciones > editar > Quien tiene acceso > Cualquier persona.');
+  }
+  if(!data.ok){
+    if(String(data.error || '').indexOf('Sesión inválida') === 0){
+      sesionVencida();
+    }
+    throw new Error(data.error || 'Error desconocido del servidor.');
+  }
+  // La clave de administrador es de un solo uso.
+  if(ACCIONES_ADMIN.includes(action)) adminToken = null;
+  return data.data;
+}
+/* Cuando varias personas guardan en el MISMO segundo, el servidor responde
+   "ocupado" en vez de perder el trabajo. Aquí se reintenta solo: no se
+   duplica nada, porque la primera vez la operación ni siquiera empezó. */
+async function apiCall(action, payload){
+  for(let intento = 0; ; intento++){
+    try{
+      return await apiCallUna(action, payload);
+    }catch(err){
+      const msg = String(err.message || '');
+      if(msg.indexOf(MARCA_OCUPADO) >= 0){
+        if(intento < REINTENTOS_OCUPADO){
+          await dormir(ESPERAS_OCUPADO[intento]);
+          continue;
+        }
+        /* Se acabó la espera. Aquí no se perdió nada (la operación ni empezó),
+           así que se explica eso claro: no hay que reintroducir el pedido. */
+        throw new Error('El sistema está ocupado porque otra persona está guardando en este momento. '
+          + 'Nada se perdió, pero hay que intentarlo de nuevo: presiona el botón que estabas usando.');
+      }
+      throw err;
+    }
+  }
+}
+
+/* ==================== ACCESO ==================== */
+async function entrar(){
+  const usuario = $('lockUser').value.trim();
+  const clave = $('lockPassword').value;
+  $('lockError').textContent = '';
+  mostrarCarga(true, 'Verificando contraseña…');
+  try{
+    const data = await apiCall('login', { user: usuario, password: clave });
+    sessionToken = data.token;
+    adminToken = null;
+    conectado = true;
+    sesion = { usuario: data.usuario || '', nombre: data.nombre || 'Administrador',
+               rol: data.rol || 'admin', soyAdmin: !!data.soyAdmin };
+    $('lockScreen').classList.remove('show');
+    $('connStatus').textContent = '🔓 Sesión activa';
+    pintarSesion();
+    await cargar();
+    pintarAvisos(data.avisos || []);
+    tab('pedidos');
+  }catch(err){
+    $('lockError').textContent = err.message;
+  }
+  mostrarCarga(false);
+}
+/* Muestra quién está trabajando en la barra superior. */
+function pintarSesion(){
+  const badge = $('userBadge');
+  badge.textContent = sesion.nombre + (sesion.usuario ? ' (' + sesion.usuario + ')' : '')
+    + ' · ' + (sesion.soyAdmin ? 'Administrador' : 'Vendedor');
+  badge.style.display = '';
+  $('tabRecargas').style.display = '';
+}
+function pintarAvisos(lista){
+  const box = $('avisosLogin');
+  if(!lista || !lista.length){ box.className = ''; box.textContent = ''; return; }
+  box.textContent = lista.join(' ');
+  box.className = 'show';
+}
+function logout(){
+  const seguir = apiCall('logout', {}).catch(() => {});
+  sessionToken = null; adminToken = null; conectado = false; editando = null;
+  sesion = null; pararRelojViejos(); cerrarAvisoViejo();
+  $('connStatus').textContent = '🔒 Bloqueado';
+  $('userBadge').style.display = 'none';
+  $('lockPassword').value = ''; $('lockUser').value = '';
+  $('lockScreen').classList.add('show');
+  $('tabRecargas').style.display = 'none';
+  return seguir;
+}
+function sesionVencida(){
+  if(!sessionToken) return;
+  conectado = false; sessionToken = null; adminToken = null; sesion = null;
+  pararRelojViejos(); cerrarAvisoViejo();
+  $('connStatus').textContent = '🔒 Sesión cerrada';
+  $('userBadge').style.display = 'none';
+  $('lockError').textContent = 'Tu sesión se cerró (se venció, o un administrador cambió tu clave o desactivó tu usuario). Vuelve a entrar.';
+  $('lockScreen').classList.add('show');
+}
+
+/* ---------- ¿lo que veo en pantalla todavía vale? ----------
+   Cada quien ve la información del momento en que entró. Si pasa un rato (o
+   vuelve a la pestaña después de haber estado en otro programa), se avisa que
+   puede haber alguien más trabajando al mismo tiempo. */
+function marcarDatosFrescos(horaServidor){
+  datosCargadosEn = Date.now();
+  const ship = $('staleWho');
+  if(ship) ship.textContent = horaServidor
+    ? 'Últimos cambios registrados en el servidor: ' + horaServidor + '.'
+    : '';
+  arrancarRelojViejos();
+}
+function arrancarRelojViejos(){
+  pararRelojViejos();
+  relojViejos = setInterval(revisarDatosViejos, 30000);
+  document.addEventListener('visibilitychange', function(){
+    if(!document.hidden) revisarDatosViejos();
+  });
+}
+function pararRelojViejos(){ if(relojViejos){ clearInterval(relojViejos); relojViejos = null; } }
+function minutosDesdeCarga(){ return datosCargadosEn ? (Date.now() - datosCargadosEn) / 60000 : 0; }
+function revisarDatosViejos(){
+  if(!conectado || !datosCargadosEn) return;
+  if(minutosDesdeCarga() < MINUTOS_VIEJOS) return;
+  const m = Math.floor(minutosDesdeCarga());
+  $('staleWhen').textContent = 'Los datos que ves se descargaron hace ' + m + ' minuto' + (m === 1 ? '' : 's') + '.';
+  $('staleBar').classList.add('show');
+}
+function cerrarAvisoViejo(){ $('staleBar').classList.remove('show'); }
+
+/* ==================== DATOS ==================== */
+async function cargar(){
+  mostrarCarga(true, 'Cargando datos…');
+  try{
+    const data = await apiCall('bootstrap');
+    db.config = data.config || {};
+    db.clients = data.clients || [];
+    db.products = data.products || [];
+    db.inventory = data.inventory || [];
+    db.pedidos = data.pedidos || [];
+    db.vendedores = data.vendedores || [];
+    if(data.sesion){
+      sesion = { usuario: data.sesion.usuario || '', nombre: data.sesion.nombre || 'Administrador',
+                 rol: data.sesion.rol || 'admin', soyAdmin: !!data.sesion.soyAdmin };
+      pintarSesion();
+    }
+    llenarListas();
+    pintarPedidos();
+    pintarInventario();
+    pintarNegocio();
+    marcarDatosFrescos(data.servidorAhora);
+  }catch(err){
+    avisar(err.message, true);
+  }
+  mostrarCarga(false);
+}
+function llenarListas(){
+  $('listaClientes').innerHTML = db.clients.map(c => '<option value="' + esc(c.name) + '">').join('');
+  $('listaVendedores').innerHTML = db.vendedores.map(v => '<option value="' + esc(v) + '">').join('');
+  /* En el selector de artículos se muestra lo DISPONIBLE, que es distinto
+     del stock: si otro pedido ya lo apartó, aquí lo dice. */
+  $('listaProductos').innerHTML = db.products.map(p => {
+    const inv = inventarioDe(p.code);
+    const disp = inv ? Number(inv.available) : 0;
+    return '<option value="' + esc(p.code) + '">' + esc(p.desc) + ' — disponible ' + disp + '</option>';
+  }).join('');
+}
+function inventarioDe(codigo){
+  const clave = String(codigo || '').trim().toLowerCase();
+  return db.inventory.filter(i => String(i.code || '').trim().toLowerCase() === clave)[0] || null;
+}
+function pintarNegocio(){
+  const c = db.config || {};
+  $('negocio').textContent = c.NEGOCIO || 'JTech & Cars';
+  const datos = [];
+  if(c.RUC) datos.push('RUC / Id: ' + c.RUC);
+  if(c.TELEFONO) datos.push('Tel: ' + c.TELEFONO);
+  if(c.DIRECCION) datos.push(c.DIRECCION);
+  $('negocioDatos').innerHTML = esc(datos.join(' · '));
+}
+
+/* ==================== LISTA DE PEDIDOS ==================== */
+function filtrar(estado, btn){
+  filtroActual = estado;
+  document.querySelectorAll('.filterbar button[data-filtro]').forEach(b => b.classList.remove('active'));
+  if(btn) btn.classList.add('active');
+  pintarPedidos();
+}
+function pintarPedidos(){
+  const texto = String($('buscar').value || '').toLowerCase().trim();
+  const lista = db.pedidos.filter(p => {
+    if(filtroActual !== 'Todos' && p.status !== filtroActual) return false;
+    if(!texto) return true;
+    return [p.number, p.client, p.seller, p.invoice].join(' ').toLowerCase().indexOf(texto) >= 0;
+  }).sort((a, b) => b.number - a.number);
+
+  $('tbodyPedidos').innerHTML = lista.map(p => {
+    const acciones = [];
+    acciones.push('<button class="gris" onclick="abrirPedido(' + p.number + ',true)">Ver</button>');
+    if(p.status !== 'Facturado'){
+      acciones.push('<button class="gris" onclick="abrirPedido(' + p.number + ',false)">Editar</button>');
+    }
+    if(p.status === 'Borrador'){
+      acciones.push('<button class="warn" onclick="cambiarEstado(' + p.number + ',\'Confirmado\')">Confirmar</button>');
+    }
+    if(p.status === 'Confirmado'){
+      acciones.push('<button class="ok" onclick="prepararFacturacion(' + p.number + ')">Facturar</button>');
+      acciones.push('<button class="gris" onclick="cambiarEstado(' + p.number + ',\'Anulado\')">Anular</button>');
+    }
+    if(p.status === 'Anulado'){
+      acciones.push('<button class="warn" onclick="cambiarEstado(' + p.number + ',\'Confirmado\')">Reactivar</button>');
+    }
+    if(p.status !== 'Facturado'){
+      acciones.push('<button class="danger" onclick="pedirAdmin(\'borrar\',\'Borrar el pedido ' + p.number + '\',function(){return borrarPedido(' + p.number + ');})">Borrar</button>');
+    }
+    return '<tr>'
+      + '<td><b>' + p.number + '</b></td>'
+      + '<td>' + fecha(p.date) + '</td>'
+      + '<td>' + esc(p.client) + '</td>'
+      + '<td>' + esc(p.seller || '—') + '</td>'
+      + '<td>' + fecha(p.delivery) + '</td>'
+      + '<td class="num">' + dinero(p.total) + '</td>'
+      + '<td><span class="pill ' + p.status.toLowerCase() + '">' + p.status + '</span></td>'
+      + '<td>' + (p.invoice ? '<b>' + p.invoice + '</b>' : '—') + '</td>'
+      + '<td>' + acciones.join(' ') + '</td>'
+      + '</tr>';
+  }).join('');
+  $('vacioPedidos').style.display = lista.length ? 'none' : '';
+}
+async function cambiarEstado(numero, estado){
+  mostrarCarga(true, 'Actualizando…');
+  try{
+    await apiCall('setPedidoEstado', { number: numero, status: estado });
+    await cargar();
+    avisar('Pedido ' + numero + ' → ' + estado + '.');
+  }catch(err){ avisar(err.message, true); }
+  mostrarCarga(false);
+}
+
+/* ==================== EDITOR DE PEDIDO ==================== */
+function tab(id){
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  $('pedidos').classList.remove('active');
+  $('apartados').classList.remove('active');
+  $('editor').classList.remove('active');
+  $(id).classList.add('active');
+}
+function nuevoPedido(){
+  editando = null;
+  itemsEdicion = [];
+  $('tituloEditor').textContent = 'Nuevo pedido';
+  $('solapaEditor').innerHTML = '';
+  $('pCliente').value = ''; $('pRuc').value = ''; $('pContacto').value = ''; $('pDireccion').value = '';
+  /* El vendedor se propone con el nombre de quien esta trabajando: asi el
+     pedido sale con el dato correcto sin que nadie lo escriba a mano. */
+  $('pVendedor').value = (sesion && sesion.nombre) || db.vendedores[0] || '';
+  $('pNotas').value = '';
+  $('pFechaInput').value = hoy();
+  $('pEntregaInput').value = hoy();
+  $('pEstadoInput').value = 'Borrador';
+  $('pEstadoInput').disabled = false;
+  $('btnGuardar').style.display = '';
+  $('tbodyItems').innerHTML = '';
+  agregarItem();
+  pintarEncabezado();
+  calcular();
+  tab('editor');
+}
+function abrirPedido(numero, soloLectura){
+  const p = db.pedidos.filter(x => x.number === numero)[0];
+  if(!p){ avisar('El pedido ' + numero + ' ya no existe.', true); return; }
+  editando = p;
+  itemsEdicion = p.items.map(i => ({ code: i.code, desc: i.desc, qty: i.qty, price: i.price, tax: i.tax }));
+  $('tituloEditor').textContent = 'Pedido Nº ' + p.number + (soloLectura ? ' (solo lectura)' : '');
+  const partes = [];
+  partes.push('Cliente: <b>' + esc(p.client) + '</b>');
+  if(p.seller) partes.push('Vendedor: <b>' + esc(p.seller) + '</b>');
+  partes.push('Estado: <span class="pill ' + p.status.toLowerCase() + '">' + p.status + '</span>');
+  if(p.invoice) partes.push('Factura generada: <b>' + p.invoice + '</b>');
+  $('solapaEditor').innerHTML = partes.join(' · ');
+  $('pCliente').value = p.client; $('pRuc').value = p.clientId || '';
+  $('pContacto').value = p.contact || ''; $('pDireccion').value = p.address || '';
+  $('pVendedor').value = p.seller || '';
+  $('pNotas').value = p.notes || '';
+  $('pFechaInput').value = p.date || hoy();
+  $('pEntregaInput').value = p.delivery || p.date || hoy();
+  $('pEstadoInput').value = p.status === 'Facturado' ? 'Facturado' : p.status;
+  $('pEstadoInput').disabled = soloLectura || p.status === 'Facturado';
+  $('btnGuardar').style.display = soloLectura || p.status === 'Facturado' ? 'none' : '';
+  /* OJO: aquí solo se DIBUJA lo que ya está en itemsEdicion. No se usan
+     agregarItem() en un bucle, porque esa función agrega una línea nueva y
+     duplicaría los artículos del pedido. */
+  if(!itemsEdicion.length) itemsEdicion.push({ code:'', desc:'', qty:1, price:0, tax:0 });
+  pintarItems();
+  pintarEncabezado();
+  calcular();
+  tab('editor');
+}
+function buscarCliente(nombre){
+  const c = db.clients.filter(x => String(x.name).toLowerCase() === String(nombre).trim().toLowerCase())[0];
+  if(!c) return;
+  $('pRuc').value = c.id || '';
+  $('pContacto').value = c.contact || '';
+  $('pDireccion').value = c.address || '';
+}
+function refrescarEncabezado(){ pintarEncabezado(); }
+function pintarEncabezado(){
+  const estado = $('pEstadoInput').value;
+  /* El numero definitivo lo recalcula el servidor al guardar (para que dos
+     personas a la vez no repitan numero). Aquí solo se muestra el previsto. */
+  const numero = editando ? editando.number : siguienteNumero();
+  $('tipoDoc').textContent = 'PEDIDO DE VENTA';
+  $('pNumero').textContent = numero;
+  $('pFecha').textContent = fecha($('pFechaInput').value);
+  $('pEntrega').textContent = fecha($('pEntregaInput').value);
+  $('pEstado').innerHTML = '<span class="pill ' + estado.toLowerCase() + '">' + estado + '</span>';
+}
+function siguienteNumero(){
+  const mayores = db.pedidos.map(p => p.number);
+  const ultimo = mayores.length ? Math.max.apply(null, mayores) : 1000;
+  return ultimo + 1;
+}
+function agregarItem(item){
+  const it = item || { code:'', desc:'', qty:1, price:0, tax:0 };
+  itemsEdicion.push(it);
+  pintarItems();
+}
+function quitarItem(indice){
+  itemsEdicion.splice(indice, 1);
+  if(!itemsEdicion.length) itemsEdicion.push({ code:'', desc:'', qty:1, price:0, tax:0 });
+  pintarItems();
+  calcular();
+}
+function alCambiarArticulo(indice){
+  const it = itemsEdicion[indice];
+  const p = db.products.filter(x => String(x.code).toLowerCase() === String(it.code).trim().toLowerCase())[0];
+  if(p){
+    it.desc = p.desc || '';
+    if(!it.price) it.price = Number(p.price) || 0;
+    if(!it.tax) it.tax = Number(p.tax) || 0;
+  }
+  pintarItems();
+  calcular();
+}
+function pintarItems(){
+  $('tbodyItems').innerHTML = itemsEdicion.map((it, i) => {
+    /* Para no asustar con existencias negativas, al editar un pedido que ya
+       esta confirmado se suma su propia reserva: lo que el muestra es lo que
+       hay libre si este pedido se guarda tal cual. */
+    let disponible = 0, tieneReserva = false;
+    const inv = inventarioDe(it.code);
+    if(inv){
+      disponible = Number(inv.available) || 0;
+      if(editando && editando.status === 'Confirmado'){
+        disponible += (Number(it.qty) || 0);
+        tieneReserva = true;
+      }
+    }
+    const falta = disponible < (Number(it.qty) || 0);
+    const linea = (Number(it.qty) || 0) * (Number(it.price) || 0) * (1 + (Number(it.tax) || 0) / 100);
+    const avisoStock = it.code
+      ? '<div class="' + (falta ? 'disponible-bajo' : 'disponible-alto') + '" style="font-size:12px;margin-top:3px">'
+        + 'disponible: ' + disponible + (tieneReserva ? ' (sin contar este pedido)' : '')
+        + (falta ? ' — no alcanza' : '') + '</div>'
+      : '';
+    return '<tr>'
+      + '<td><input list="listaProductos" aria-label="Código del artículo ' + (i + 1) + '" value="' + esc(it.code) + '" placeholder="Código" oninput="itemsEdicion[' + i + '].code=this.value;alCambiarArticulo(' + i + ')">'
+      + avisoStock + '</td>'
+      + '<td><input type="number" step="0.01" min="0" aria-label="Cantidad del artículo ' + (i + 1) + '" value="' + it.qty + '" oninput="itemsEdicion[' + i + '].qty=this.value;calcular()"></td>'
+      + '<td><input aria-label="Descripción del artículo ' + (i + 1) + '" value="' + esc(it.desc) + '" oninput="itemsEdicion[' + i + '].desc=this.value"></td>'
+      + '<td><input type="number" step="0.01" min="0" aria-label="Precio del artículo ' + (i + 1) + '" value="' + it.price + '" oninput="itemsEdicion[' + i + '].price=this.value;calcular()"></td>'
+      + '<td><input type="number" step="0.01" min="0" aria-label="ITBMS del artículo ' + (i + 1) + '" value="' + it.tax + '" oninput="itemsEdicion[' + i + '].tax=this.value;calcular()"></td>'
+      + '<td class="num"><b>' + dinero(linea) + '</b></td>'
+      + '<td class="oculto-print"><button class="danger" aria-label="Quitar el artículo ' + (i + 1) + '" onclick="quitarItem(' + i + ')">✕</button></td>'
+      + '</tr>';
+  }).join('');
+}
+function calcular(){
+  const subtotal = itemsEdicion.reduce((t, it) => t + (Number(it.qty) || 0) * (Number(it.price) || 0), 0);
+  const impuesto = itemsEdicion.reduce((t, it) => t + (Number(it.qty) || 0) * (Number(it.price) || 0) * (Number(it.tax) || 0) / 100, 0);
+  $('pSubtotal').textContent = dinero(subtotal);
+  $('pItbms').textContent = dinero(impuesto);
+  $('pTotal').textContent = dinero(subtotal + impuesto);
+}
+async function guardarPedido(){
+  if(editando && editando.status === 'Facturado'){
+    avisar('El pedido ' + editando.number + ' ya está facturado. Edite la factura, no el pedido.', true);
+    return;
+  }
+  const cliente = String($('pCliente').value || '').trim();
+  if(!cliente){ avisar('Escriba el nombre del cliente.', true); $('pCliente').focus(); return; }
+  const items = itemsEdicion.filter(it => String(it.code || '').trim());
+  if(!items.length){ avisar('Agrega al menos un artículo al pedido.', true); return; }
+  const pedido = {
+    number: editando ? editando.number : null,
+    date: $('pFechaInput').value,
+    delivery: $('pEntregaInput').value,
+    client: cliente,
+    clientId: String($('pRuc').value || '').trim(),
+    contact: String($('pContacto').value || '').trim(),
+    address: String($('pDireccion').value || '').trim(),
+    seller: String($('pVendedor').value || '').trim(),
+    status: $('pEstadoInput').value,
+    notes: String($('pNotas').value || '').trim(),
+    items: items.map(it => ({
+      code: String(it.code).trim(), desc: it.desc || '',
+      qty: Number(it.qty) || 0, price: Number(it.price) || 0, tax: Number(it.tax) || 0
+    }))
+  };
+  mostrarCarga(true, 'Guardando pedido…');
+  try{
+    const data = await apiCall('savePedido', { pedido: pedido });
+    await cargar();
+    mostrarCarga(false);
+    if(data.avisos && data.avisos.length){
+      avisar('Pedido ' + data.number + ' guardado, pero hay artículos sin existencias suficientes:', true, data.avisos);
+    }else{
+      avisar('Pedido ' + data.number + ' guardado (' + data.status + ').');
+    }
+    tab('pedidos');
+  }catch(err){
+    mostrarCarga(false);
+    /* Si el servidor pide clave es porque se esta EDITANDO un pedido que ya
+       existe: se vuelve a pedir con el mismo formulario listo. */
+    if(String(err.message).indexOf('administrador') >= 0){
+      pedirAdmin('editar', 'Editar el pedido ' + (pedido.number || ''), () => reintentarGuardado(pedido));
+    }else{
+      avisar(err.message, true);
+    }
+  }
+}
+async function reintentarGuardado(pedido){
+  try{
+    const data = await apiCall('savePedido', { pedido: pedido });
+    await cargar();
+    if(data.avisos && data.avisos.length){
+      avisar('Pedido ' + data.number + ' guardado, pero revisa las existencias:', true, data.avisos);
+    }else{
+      avisar('Pedido ' + data.number + ' actualizado.');
+    }
+    tab('pedidos');
+  }catch(err){ avisar(err.message, true); }
+}
+async function borrarPedido(numero){
+  mostrarCarga(true, 'Borrando…');
+  try{
+    await apiCall('deletePedido', { number: numero });
+    await cargar();
+    avisar('Pedido ' + numero + ' borrado.');
+  }catch(err){ avisar(err.message, true); }
+  mostrarCarga(false);
+}
+function abrirRecargas(){
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  $('recargas').classList.add('active');
+  document.querySelectorAll('.tabs button').forEach(b => {
+    b.classList.toggle('on', b.id === 'tabRecargas');
+  });
+  const iframe = document.querySelector('[data-frame="recargas"]');
+  const loader = document.querySelector('[data-fload="recargas"]');
+  if(iframe && iframe.src === 'about:blank'){
+    iframe.src = 'recargas.html';
+    iframe.onload = function(){
+      if(loader) loader.classList.remove('show');
+    };
+    iframe.onerror = function(){
+      if(loader){
+        loader.innerHTML = '<div style="font-size:26px">⚠️</div><div>No se pudo cargar recargas.html</div><div class="hint">Revisa que el archivo <code>modulos/ventas/recargas.html</code> exista en el repositorio.</div>';
+      }
+    };
+  }
+}
+
+function volverALista(){ tab('pedidos'); }
+function prepararImpresion(){ window.print(); }
+
+/* ==================== FACTURAR ==================== */
+function prepararFacturacion(numero){
+  const p = db.pedidos.filter(x => x.number === numero)[0];
+  if(!p){ avisar('El pedido no existe.', true); return; }
+  if(p.status !== 'Confirmado'){
+    avisar('Solo se puede facturar un pedido Confirmado. Este está en estado ' + p.status + '.', true);
+    return;
+  }
+  pedidoPendiente = numero;
+  $('fNumero').textContent = 'Nº ' + numero;
+  $('fFecha').value = hoy();
+  $('fVence').value = sumarDias(hoy(), 30);
+  $('fError').textContent = '';
+  $('facturarModal').classList.add('show');
+}
+async function confirmarFacturacion(){
+  if(!pedidoPendiente) return;
+  const numero = pedidoPendiente;
+  $('fError').textContent = '';
+  mostrarCarga(true, 'Emitiendo factura…');
+  try{
+    const data = await apiCall('facturarPedido', {
+      number: numero,
+      opciones: { date: $('fFecha').value, due: $('fVence').value, paymentMethod: $('fPago').value }
+    });
+    $('facturarModal').classList.remove('show');
+    await cargar();
+    avisar('Factura N° ' + data.invoice + ' creada a partir del pedido ' + numero + '. Ya puedes cobrarla en el módulo de Facturación.');
+  }catch(err){
+    $('fError').textContent = err.message;
+  }
+  mostrarCarga(false);
+}
+
+/* ==================== INVENTARIO Y APARTADOS ==================== */
+function pintarInventario(){
+  const texto = String($('buscarInv').value || '').toLowerCase().trim();
+  const soloBajo = $('soloBajo').checked;
+  const lista = db.inventory.filter(i => {
+    if(texto && [i.code, i.desc].join(' ').toLowerCase().indexOf(texto) < 0) return false;
+    if(soloBajo && i.estado !== 'BAJO') return false;
+    return true;
+  }).sort((a, b) => String(a.code).localeCompare(String(b.code)));
+
+  $('tbodyInventario').innerHTML = lista.map(i => '<tr>'
+    + '<td><b>' + esc(i.code) + '</b></td>'
+    + '<td>' + esc(i.desc) + '</td>'
+    + '<td class="num">' + i.stock + '</td>'
+    + '<td class="num">' + (i.reserved ? '<b style="color:#b58900">' + i.reserved + '</b>' : '0') + '</td>'
+    + '<td class="num"><b>' + i.available + '</b></td>'
+    + '<td class="num">' + i.minStock + '</td>'
+    + '<td><span class="pill ' + (i.estado === 'BAJO' ? 'bajo' : 'okb') + '">' + (i.estado === 'BAJO' ? 'Existencias bajas' : 'Normal') + '</span></td>'
+    + '</tr>').join('');
+  $('vacioInventario').style.display = lista.length ? 'none' : '';
+}
+
+/* ==================== CLAVE DE ADMINISTRADOR ====================
+   Se pide antes de una acción protegida y, al confirmarla, se ejecuta lo
+   que estaba pendiente. */
+let accionPendiente = null;
+function pedirAdmin(que, mensaje, fn){
+  /* Un vendedor puede trabajar, pero no borrar: se le dice claro en vez de
+     pedirle una clave que el servidor le va a rechazar igual. */
+  if(sesion && !sesion.soyAdmin){
+    avisar('Tu usuario "' + sesion.nombre + '" no es administrador. Puede registrar pedidos y consultar, pero no editar ni borrar los que ya están escritos. Pídele a un administrador que lo haga, o que te cambie el rol en la pestaña Usuarios de Facturación.', true);
+    return;
+  }
+  $('adminPrompt').textContent = mensaje + '. Esta acción está reservada para el administrador.';
+  $('adminPassword').value = '';
+  $('adminError').textContent = '';
+  accionPendiente = { que: que, fn: fn };
+  $('adminModal').classList.add('show');
+  $('adminPassword').focus();
+}
+async function confirmarAdmin(){
+  if(!accionPendiente) return;
+  const clave = $('adminPassword').value;
+  const info = accionPendiente;
+  $('adminError').textContent = '';
+  if(!clave){ $('adminError').textContent = 'Ingresa la clave.'; return; }
+  try{
+    const data = await apiCall('adminLogin', { password: clave });
+    /* El servidor da una clave de un solo uso (2 minutos): se guarda para la
+       acción que sigue y se descarta al usarla. */
+    adminToken = data.adminToken;
+    accionPendiente = null;
+    $('adminModal').classList.remove('show');
+    await info.fn();
+  }catch(err){
+    $('adminError').textContent = err.message;
+  }
+}
+function cerrarModal(id){
+  $(id).classList.remove('show');
+  if(id === 'adminModal'){ accionPendiente = null; adminToken = null; }
+}
+
+/* ==================== AYUDITAS ==================== */
+function mostrarCarga(on, texto){
+  const ov = $('loadingOverlay');
+  ov.classList.toggle('show', !!on);
+  if(on && texto) ov.firstElementChild.textContent = texto;
+}
+function avisar(texto, esError, lista){
+  const div = document.createElement('div');
+  div.style.cssText = 'background:' + (esError ? '#a00' : '#222') + ';color:#fff;padding:11px 15px;border-radius:6px;'
+    + 'max-width:420px;font-size:13.5px;line-height:1.6;box-shadow:0 3px 12px #0005';
+  let html = esc(texto);
+  if(lista && lista.length){
+    html += '<ul>' + lista.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>';
+  }
+  div.innerHTML = html;
+  $('avisoVivo').appendChild(div);
+  setTimeout(() => div.remove(), esError ? 12000 : 6000);
+}
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+}
+function dinero(n){
+  return '$' + (Number(n) || 0).toLocaleString('es-PA', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function fecha(iso){
+  if(!iso) return '—';
+  const a = String(iso).split('-');
+  return a.length === 3 ? a[2] + '/' + a[1] + '/' + a[0] : iso;
+}
+function hoy(){
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+function sumarDias(iso, dias){
+  const a = String(iso).split('-');
+  const d = new Date(Number(a[0]), Number(a[1]) - 1, Number(a[2]));
+  d.setDate(d.getDate() + dias);
+  const p = n => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+/* Al abrir: si ya hay sesión en la página (no se guarda, siempre se pide),
+   se muestra el bloqueo para no dejar el pedido expuesto. */
+$('lockPassword').focus();
+</script>
+
+  <!-- ============ RECARGAS ============ -->
+  <section id="recargas" class="panel">
+    <div class="oculto-print" style="margin-bottom:10px">
+      <h2 class="seccion">Recargas telefónicas</h2>
+      <p class="aviso" style="margin:4px 0 0">Registro de recargas, saldo con recargo, ciclos de revendedores y avisos por WhatsApp.</p>
+    </div>
+    <div class="frame-wrap" data-wrap="recargas" style="height:calc(100vh - var(--tbH) - 80px);min-height:520px">
+      <div class="fload show" data-fload="recargas">
+        <div class="spin"></div>
+        <div>Cargando el módulo Recargas…</div>
+      </div>
+      <iframe data-frame="recargas" title="Módulo de Recargas" src="about:blank"></iframe>
+    </div>
+  </section>
+
+</body></html>
