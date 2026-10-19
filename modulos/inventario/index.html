@@ -1,0 +1,759 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JTech &amp; Cars - Inventario</title>
+<meta name="description" content="Módulo de inventario: stock actual, kardex de movimientos y ajustes de mercancía.">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eee;font-family:Arial;color:#222}
+.app{max-width:1250px;margin:18px auto;background:#fff;box-shadow:0 2px 12px #aaa}
+.bar{background:#222;color:#fff;padding:12px 18px}.connbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#connStatus{font-size:13px;opacity:.85}.connbar button{background:#fff;color:#222}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;background:#f3f3f3;padding:12px 18px}
+button{padding:9px 13px;border:0;border-radius:5px;cursor:pointer;font-weight:bold}
+.primary{background:#222;color:#fff}.azul{background:#005A82;color:#fff}.danger{background:#a00;color:#fff}
+.ok{background:#2a7;color:#fff}.warn{background:#b58900;color:#fff}.gris{background:#eee;color:#222;font-weight:normal}
+.panel{display:none;padding:24px}.active{display:block}
+h2.seccion{margin:0 0 4px;font-size:19px;color:#005A82}
+.aviso{font-size:13px;color:#666;margin:0 0 16px}
+label{font-weight:bold;font-size:13px;display:block}
+input,textarea,select{width:100%;padding:8px;border:1px solid #aaa;border-radius:4px;margin-top:5px;font:inherit}
+textarea{min-height:70px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}
+.grid.dos{grid-template-columns:1fr 1fr}
+table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #aaa;padding:7px;text-align:left;vertical-align:top}
+th{background:#eee;font-size:13px}
+.num{text-align:right;white-space:nowrap}
+.list button{padding:5px 8px;font-size:12px;margin:2px 0}
+.list td,.list th{border-left:0;border-right:0}
+.acciones{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;color:#fff;white-space:nowrap}
+.pill.bajo{background:#a00}.pill.okb{background:#2a7}
+.pill.entrada{background:#2a7}.pill.salida{background:#a00}.pill.ajuste{background:#005A82}
+.filterbar{display:flex;gap:6px;margin:6px 0 14px;flex-wrap:wrap;align-items:center}
+.filterbar button{background:#eee;color:#222;font-weight:normal;font-size:13px}
+.filterbar button.active{background:#222;color:#fff}
+.buscador{flex:1;min-width:190px;max-width:320px;margin:0!important}
+.nota{font-size:12.5px;color:#666;line-height:1.7}
+.resumen{display:flex;gap:14px;flex-wrap:wrap;margin:0 0 14px}
+.resumen .celda{background:#f5f8fb;border:1px solid #dbe3ec;border-radius:8px;padding:10px 14px;min-width:150px}
+.resumen .celda .k{font-size:12px;color:#5a6a7f}.resumen .celda .v{font-size:20px;font-weight:bold;color:#005A82}
+.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center;z-index:999}
+.modal.show{display:flex}
+.modalbox{background:#fff;padding:20px;max-width:720px;width:92%;border-radius:6px;max-height:92vh;overflow:auto}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+#loadingOverlay{display:none;position:fixed;inset:0;background:#0009;align-items:center;justify-content:center;color:#fff;font-size:17px;z-index:1000}
+#loadingOverlay.show{display:flex}
+#userBadge{font-size:13px;background:#005A82;color:#fff;padding:3px 10px;border-radius:11px;display:none}
+#staleBar{display:none;padding:11px 18px;background:#fff4d6;border-bottom:1px solid #e0b95a;color:#6b4c00;align-items:center;gap:12px;flex-wrap:wrap}
+#staleBar.show{display:flex}#staleBar button{background:#b58900;color:#fff}
+#avisosLogin{display:none;margin:0 0 12px;padding:10px 12px;border:1px solid #e0b95a;background:#fff9e8;border-radius:5px;font-size:13px;line-height:1.5}
+#avisosLogin.show{display:block}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+@media(max-width:820px){.grid{grid-template-columns:1fr 1fr}.grid.dos{grid-template-columns:1fr}}
+@media(max-width:520px){.grid{grid-template-columns:1fr}}
+@media print{body{background:#fff}.app{margin:0;box-shadow:none}.bar,.tabs,.no-print{display:none!important}.panel{padding:0}}
+/* TEMA VISUAL — igual estilo que Facturación, Ventas y Compras */
+@media screen{
+  :root{
+    --brand:#005A82;--brand2:#0b7ea8;--brandSoft:#e7f2f8;
+    --bg:#eef2f6;--card:#fff;--line:#dbe3ec;--line2:#c7d3e0;
+    --txt:#1e2b38;--muted:#5a6a7f;--ok:#1c7c4d;--okSoft:#e6f4ec;
+    --warn:#7d5600;--warnSoft:#fdf3dd;--bad:#a12b2b;--badSoft:#fbe9e9;--off:#5f6f82;
+  }
+  body{background:var(--bg);color:var(--txt);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,Helvetica,sans-serif}
+  .app{max-width:none;width:100%;margin:0;min-height:100vh;background:var(--bg);border:0;border-radius:0;box-shadow:none;
+    display:flex;flex-direction:column}
+  .bar{background:#fff;color:var(--txt);border-bottom:1px solid var(--line);padding:12px 18px;border-radius:0}
+  .connbar b{color:var(--brand);font-size:15px}
+  #connStatus{color:var(--muted);opacity:1}
+  #userBadge{background:var(--brandSoft);color:var(--brand);border-radius:99px;padding:3px 11px;font-weight:600}
+  .tabs{background:#fff;color:var(--txt);border-bottom:1px solid var(--line);padding:0 12px;gap:2px}
+  .tabs button{background:transparent;color:var(--muted);border-radius:0;border-bottom:3px solid transparent;
+    padding:11px 13px;font-weight:600}
+  .tabs button:hover{color:var(--txt);background:#f7fafc}
+  .panel{padding:18px;max-width:1200px;width:100%;margin:0 auto}
+  h2.seccion{color:var(--brand)}
+  .aviso{color:var(--muted);background:var(--brandSoft);border-left:3px solid var(--brand2);
+    padding:9px 12px;border-radius:8px}
+  label{font-weight:600;font-size:12.5px;color:var(--muted)}
+  input,textarea,select{border:1px solid var(--line2);border-radius:6px;padding:9px 10px;
+    font:inherit;font-size:13.5px;background:#fff;color:var(--txt)}
+  input:focus,textarea:focus,select:focus{outline:2px solid #b7dcec;border-color:var(--brand2)}
+  button{background:#fff;border:1px solid var(--line2);color:var(--txt);border-radius:6px;
+    padding:9px 14px;font-weight:600;cursor:pointer}
+  button:hover{border-color:var(--brand2);background:#f2f6fa}
+  button.primary,.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  button.primary:hover,.primary:hover{background:var(--brand2);border-color:var(--brand2)}
+  button.azul,.azul{background:var(--brand2);border-color:var(--brand2);color:#fff}
+  button.ok,.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+  button.warn,.warn{background:var(--warn);border-color:var(--warn);color:#fff}
+  button.danger,.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+  button.gris,.gris{background:#eef1f5;border-color:var(--line2);color:var(--off);font-weight:600}
+  .filterbar button{background:#eef1f5;border-color:var(--line2);color:var(--off);font-weight:600}
+  .filterbar button.active{background:var(--brand);border-color:var(--brand);color:#fff}
+  .buscador{max-width:320px}
+  .list{width:100%;border-collapse:collapse;font-size:13px;border:1px solid var(--line);
+    border-radius:10px;overflow:hidden}
+  .list th,.list td{border:0;border-bottom:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:middle}
+  .list th{background:#f7fafc;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  .list tr:hover td{background:#f7fafc}
+  .pill{border-radius:99px;padding:2px 9px;font-weight:700;font-size:10.5px;letter-spacing:.4px;text-transform:uppercase}
+  .pill.bajo{background:var(--badSoft);color:var(--bad)}
+  .pill.okb{background:var(--okSoft);color:var(--ok)}
+  .pill.entrada{background:var(--okSoft);color:var(--ok)}
+  .pill.salida{background:var(--badSoft);color:var(--bad)}
+  .pill.ajuste{background:var(--brandSoft);color:var(--brand)}
+  .resumen .celda{background:#fff;border:1px solid var(--line);border-radius:10px}
+  .resumen .celda .k{color:var(--muted)}.resumen .celda .v{color:var(--brand)}
+  .modalbox{border:1px solid var(--line);border-radius:12px;box-shadow:0 20px 60px #0007}
+  #loadingOverlay{background:#0a1e2ecc}
+  #staleBar{background:var(--warnSoft);border-bottom:1px solid #e0b95a;color:var(--warn)}
+  #staleBar button{background:var(--warn);color:#fff}
+  #avisosLogin{border:1px solid #e0b95a;background:#fff9e8}
+  .grupoKardex td{background:#eef4f8;font-weight:bold;color:var(--brand)}
+}
+</style></head><body>
+<div class="app">
+
+  <!-- ============ ENCABEZADO ============ -->
+  <div class="bar no-print"><div class="connbar">
+    <b>JTech &amp; Cars — Inventario</b>
+    <span id="connStatus">🔒 Bloqueado</span>
+    <span id="userBadge"></span>
+    <span class="no-print"><button onclick="logout()">Cerrar sesión</button></span>
+  </div></div>
+  <div id="staleBar" class="no-print"><b>⏳ Estos datos tienen algunos minutos de atraso.</b><span id="staleWhen"></span> <span id="staleWho"></span> <button onclick="cargar()">🔄 Actualizar ahora</button><button class="primary" onclick="cerrarAvisoViejo()">Seguir viendo así</button></div>
+
+  <div class="tabs no-print">
+    <button onclick="tab('stock')">📦 Stock actual</button>
+    <button onclick="tab('kardex')">📜 Kardex</button>
+    <button onclick="tab('ajustes')">⚖️ Ajustes</button>
+    <button onclick="tab('productos')">🏷️ Productos</button>
+  </div>
+
+  <!-- ============ STOCK ACTUAL ============ -->
+  <section id="stock" class="panel active">
+    <h2 class="seccion">Stock actual</h2>
+    <p class="aviso">Foto del inventario en este momento: existencias, valorización al costo promedio, apartados en pedidos y alertas de stock mínimo.</p>
+    <div class="resumen">
+      <div class="celda"><div class="k">Artículos</div><div class="v" id="rArticulos">0</div></div>
+      <div class="celda"><div class="k">Valor del inventario</div><div class="v" id="rValor">$0.00</div></div>
+      <div class="celda"><div class="k">Stock bajo</div><div class="v" id="rBajo">0</div></div>
+    </div>
+    <div class="filterbar no-print">
+      <input class="buscador" id="buscarInv" placeholder="Buscar código o descripción" oninput="pintarStock()">
+      <label for="soloBajo" style="display:flex;align-items:center;gap:6px;font-weight:normal;margin:0"><input type="checkbox" id="soloBajo" onchange="pintarStock()" style="width:auto;margin:0"> Solo stock bajo</label>
+      <button class="gris" onclick="cargar()">🔄 Actualizar</button>
+    </div>
+    <table class="list"><thead><tr>
+      <th>Código</th><th>Artículo</th><th class="num">Stock</th><th class="num">Apartado</th>
+      <th class="num">Disponible</th><th class="num">Costo</th><th class="num">Valor</th>
+      <th class="num">Mínimo</th><th>Situación</th>
+    </tr></thead><tbody id="tbodyStock"></tbody></table>
+    <p id="vacioStock" class="nota" style="display:none">No hay artículos que coincidan.</p>
+  </section>
+
+  <!-- ============ KARDEX ============ -->
+  <section id="kardex" class="panel">
+    <h2 class="seccion">Kardex de movimientos</h2>
+    <p class="aviso">Historial de cada entrada, salida y ajuste, ordenado por fecha, con el saldo corriendo por artículo. Elige un artículo para ver su recorrido, o revisa todos.</p>
+    <div class="filterbar no-print">
+      <select id="kardexProducto" style="max-width:340px;margin:0"></select>
+      <button class="azul" onclick="cargarKardex()">🔍 Consultar</button>
+      <button class="gris" onclick="cargar()">🔄 Actualizar</button>
+    </div>
+    <table class="list"><thead><tr>
+      <th>Fecha</th><th>Tipo</th><th>Documento</th><th>Detalle</th>
+      <th class="num">Cantidad</th><th class="num">Costo</th><th class="num">Saldo</th>
+    </tr></thead><tbody id="tbodyKardex"></tbody></table>
+    <p id="vacioKardex" class="nota" style="display:none">Sin movimientos registrados.</p>
+  </section>
+
+  <!-- ============ AJUSTES ============ -->
+  <section id="ajustes" class="panel">
+    <h2 class="seccion">Ajustes de inventario</h2>
+    <p class="aviso">Corrige el stock por mermas, roturas, conteos físicos o correcciones. Un ajuste positivo suma mercancía; uno negativo la resta. Registrar un ajuste es una función de administrador.</p>
+    <div class="grid">
+      <div><label for="aFecha">Fecha</label><input type="date" id="aFecha"></div>
+      <div><label for="aCode">Artículo *</label><input list="listaProductos" id="aCode" placeholder="Código del artículo"></div>
+      <div><label for="aTipo">Tipo de ajuste</label>
+        <select id="aTipo" onchange="mostrarStockAjuste()">
+          <option value="1">Sumar al inventario (+)</option>
+          <option value="-1">Restar del inventario (−)</option>
+        </select>
+      </div>
+      <div><label for="aCantidad">Cantidad *</label><input type="number" id="aCantidad" step="1" min="1" value="1" oninput="mostrarStockAjuste()"></div>
+      <div><label for="aMotivo">Motivo *</label><input id="aMotivo" placeholder="Ej: merma, conteo físico, rotura"></div>
+      <div><label for="aDoc">Documento (opcional)</label><input id="aDoc" placeholder="Ej: AJ-001"></div>
+    </div>
+    <p id="aStockActual" class="nota"></p>
+    <div class="acciones no-print">
+      <button class="primary" onclick="guardarAjuste()">Registrar ajuste</button>
+      <button class="gris" onclick="limpiarAjuste()">Limpiar</button>
+    </div>
+    <h2 class="seccion" style="margin-top:26px">Ajustes registrados</h2>
+    <table class="list"><thead><tr>
+      <th>Fecha</th><th>Hora</th><th>Código</th><th>Artículo</th>
+      <th class="num">Cambio</th><th>Motivo</th><th>Documento</th><th>Usuario</th>
+    </tr></thead><tbody id="tbodyAjustes"></tbody></table>
+    <p id="vacioAjustes" class="nota" style="display:none">Aún no se han registrado ajustes.</p>
+  </section>
+
+  <!-- ============ PRODUCTOS ============ -->
+  <section id="productos" class="panel">
+    <h2 class="seccion">Productos y servicios</h2>
+    <p class="aviso">Catálogo único de productos: precio de venta, ITBMS, costo y stock mínimo. Al registrar una entrada en Compras, el costo de compra se actualiza solo. Editar y eliminar es función de administrador.</p>
+    <div class="grid">
+      <div><label for="pCode">Código / Item *</label><input id="pCode" placeholder="Código"></div>
+      <div><label for="pDesc">Descripción</label><input id="pDesc" placeholder="Descripción"></div>
+      <div><label for="pPrice">Precio de venta</label><input type="number" id="pPrice" step="0.01" placeholder="0.00"></div>
+      <div><label for="pTax">ITBMS %</label><input type="number" id="pTax" step="0.01" value="0"></div>
+      <div><label for="pCosto">Costo de compra</label><input type="number" id="pCosto" step="0.01" value="0"></div>
+      <div><label for="pMin">Stock mínimo</label><input type="number" id="pMin" step="1" min="0" value="0"></div>
+    </div>
+    <div class="acciones no-print">
+      <button class="primary" id="btnProduct" onclick="guardarProducto()">Guardar producto</button>
+      <button class="gris" id="btnCancelProduct" onclick="cancelarProducto()" style="display:none">Cancelar edición</button>
+      <span id="productEditHint" class="nota" style="display:none">Editando un producto existente</span>
+    </div>
+    <div id="tablaProductos"></div>
+  </section>
+
+</div>
+
+<datalist id="listaProductos"></datalist>
+
+<!-- ============ PANTALLA DE ACCESO ============ -->
+<div class="modal show" id="lockScreen"><div class="modalbox">
+  <h3>🔒 Acceso restringido</h3>
+  <p>Ingresa tu usuario y tu contraseña para ver el inventario.</p>
+  <div id="avisosLogin"></div>
+  <label for="lockUser">Usuario</label>
+  <input id="lockUser" autocapitalize="none" autocomplete="username" placeholder="Tu usuario (si lo tienes)" onkeydown="if(event.key==='Enter')entrar()">
+  <label for="lockPassword">Contraseña</label>
+  <input type="password" id="lockPassword" autocomplete="current-password" onkeydown="if(event.key==='Enter')entrar()">
+  <p class="nota" style="margin-top:6px">Si dejas el usuario vacío entras con la contraseña general del sistema.</p>
+  <p id="lockError" style="color:#a00;font-size:13px;min-height:18px"></p>
+  <div class="acciones"><button class="primary" onclick="entrar()">Entrar</button></div>
+</div></div>
+
+<!-- ============ CLAVE DE ADMINISTRADOR ============ -->
+<div class="modal" id="adminModal"><div class="modalbox">
+  <h3>🔐 Función de administrador</h3>
+  <p id="adminPrompt">Esta acción está reservada para el administrador.</p>
+  <label>Clave de administrador</label>
+  <input type="password" id="adminPassword" onkeydown="if(event.key==='Enter')submitAdminKey()">
+  <p id="adminError" style="color:#a00;font-size:13px;min-height:18px"></p>
+  <div class="actions">
+    <button class="primary" onclick="submitAdminKey()">Verificar y continuar</button>
+    <button onclick="closeAdminKey(false)">Cancelar</button>
+  </div>
+</div></div>
+
+<div id="loadingOverlay"><div>Cargando…</div></div>
+<div id="avisoVivo" style="position:fixed;right:16px;bottom:16px;z-index:1200;display:flex;flex-direction:column;gap:8px"></div>
+
+<script>
+/* ======================================================================
+   MÓDULO DE INVENTARIO: STOCK, KARDEX Y AJUSTES
+   Usa la misma contraseña y la misma base de datos que Facturación,
+   Ventas y Compras. El kardex se arma del lado del servidor juntando
+   las compras (Entradas), las salidas por factura y los ajustes.
+   ====================================================================== */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCvf1AOiUGRuqR7W_a-8t6ERQdEjR3mVjlayuaDwapoOJNN5dYbwWllcF_burJBlH4/exec";
+const ACCIONES_ADMIN = ['saveAjuste', 'deleteProduct'];   // estas piden clave de administrador
+const MARCA_OCUPADO = 'SISTEMA_OCUPADO';
+const REINTENTOS_OCUPADO = 3;
+const ESPERAS_OCUPADO = [900, 2000, 3500];
+const MINUTOS_VIEJOS = 3;
+const $ = id => document.getElementById(id);
+const dormir = ms => new Promise(r => setTimeout(r, ms));
+
+let sessionToken = null;
+let adminToken = null;
+let conectado = false;
+let sesion = null;
+let db = { config:{}, clients:[], products:[], inventory:[] };
+let kardexMovs = [];
+let datosCargadosEn = 0;
+let relojViejos = null;
+
+/* ==================== COMUNICACIÓN ==================== */
+async function apiCallUna(action, payload){
+  payload = payload || {};
+  if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('PEGA_AQUI') === 0){
+    throw new Error('Falta configurar APPS_SCRIPT_URL con la URL de tu Web App de Google Apps Script.');
+  }
+  let res;
+  try{
+    res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: action, token: sessionToken, adminToken: adminToken, ...payload })
+    });
+  }catch(err){
+    throw new Error('No se pudo conectar con el servidor. Revisa tu internet y recarga con Ctrl+F5.');
+  }
+  if(!res.ok) throw new Error('Error de red (' + res.status + ').');
+  let data;
+  try{ data = await res.json(); }catch(err){
+    throw new Error('El servidor no devolvió una respuesta válida.');
+  }
+  if(!data.ok){
+    if(String(data.error || '').indexOf('Sesión inválida') === 0) sesionVencida();
+    throw new Error(data.error || 'Error desconocido del servidor.');
+  }
+  // El token de administrador es de un solo uso: se descarta al emplearlo.
+  if(ACCIONES_ADMIN.includes(action)) adminToken = null;
+  return data.data;
+}
+async function apiCall(action, payload){
+  for(let i = 0; ; i++){
+    try{ return await apiCallUna(action, payload); }
+    catch(err){
+      if(String(err.message || '').indexOf(MARCA_OCUPADO) >= 0 && i < REINTENTOS_OCUPADO){
+        await dormir(ESPERAS_OCUPADO[i]); continue;
+      }
+      throw err;
+    }
+  }
+}
+
+/* ==================== ACCESO ==================== */
+async function entrar(){
+  const usuario = $('lockUser').value.trim();
+  const clave = $('lockPassword').value;
+  $('lockError').textContent = '';
+  mostrarCarga(true, 'Verificando contraseña…');
+  try{
+    const data = await apiCall('login', { user: usuario, password: clave, modulo: 'inventario' });
+    sessionToken = data.token; adminToken = null; conectado = true;
+    sesion = { usuario: data.usuario || '', nombre: data.nombre || 'Administrador',
+               rol: data.rol || 'admin', soyAdmin: !!data.soyAdmin };
+    $('lockScreen').classList.remove('show');
+    $('connStatus').textContent = '🔓 Sesión activa';
+    pintarSesion();
+    await cargar();
+    pintarAvisos(data.avisos || []);
+    tab('stock');
+  }catch(err){ $('lockError').textContent = err.message; }
+  mostrarCarga(false);
+}
+function pintarSesion(){
+  const b = $('userBadge');
+  b.textContent = sesion.nombre + (sesion.usuario ? ' (' + sesion.usuario + ')' : '')
+    + ' · ' + (sesion.soyAdmin ? 'Administrador' : 'Vendedor');
+  b.style.display = '';
+}
+function pintarAvisos(lista){
+  const box = $('avisosLogin');
+  if(!lista || !lista.length){ box.className = ''; box.textContent = ''; return; }
+  box.textContent = lista.join(' '); box.className = 'show';
+}
+function logout(){
+  apiCall('logout', {}).catch(() => {});
+  sessionToken = null; adminToken = null; conectado = false; sesion = null;
+  pararRelojViejos(); cerrarAvisoViejo();
+  $('connStatus').textContent = '🔒 Bloqueado';
+  $('userBadge').style.display = 'none';
+  $('lockPassword').value = ''; $('lockUser').value = '';
+  $('lockScreen').classList.add('show');
+}
+function sesionVencida(){
+  if(!sessionToken) return;
+  conectado = false; sessionToken = null; adminToken = null; sesion = null;
+  pararRelojViejos(); cerrarAvisoViejo();
+  $('connStatus').textContent = '🔒 Sesión cerrada';
+  $('userBadge').style.display = 'none';
+  $('lockError').textContent = 'Tu sesión se cerró. Vuelve a entrar.';
+  $('lockScreen').classList.add('show');
+}
+
+/* ==================== DATOS ==================== */
+async function cargar(){
+  mostrarCarga(true, 'Cargando datos…');
+  try{
+    const data = await apiCall('bootstrap');
+    db.config = data.config || {};
+    db.clients = data.clients || [];
+    db.products = data.products || [];
+    db.inventory = data.inventory || [];
+    if(data.sesion){
+      sesion = { usuario: data.sesion.usuario || '', nombre: data.sesion.nombre || 'Administrador',
+                 rol: data.sesion.rol || 'admin', soyAdmin: !!data.sesion.soyAdmin };
+      pintarSesion();
+    }
+    llenarListas();
+    pintarStock();
+    pintarProductos();
+    await cargarKardex();
+    await cargarAjustes();
+    marcarDatosFrescos(data.servidorAhora);
+  }catch(err){ avisar(err.message, true); }
+  mostrarCarga(false);
+}
+function llenarListas(){
+  $('listaProductos').innerHTML = db.products.map(p => {
+    const inv = inventarioDe(p.code);
+    const stock = inv ? Number(inv.stock) : 0;
+    return '<option value="' + esc(p.code) + '">' + esc(p.desc) + ' — stock ' + stock + '</option>';
+  }).join('');
+  // Selector del kardex: todos + cada artículo
+  const sel = $('kardexProducto');
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">— Todos los artículos —</option>'
+    + db.products.map(p => '<option value="' + esc(p.code) + '">' + esc(p.code) + ' — ' + esc(p.desc) + '</option>').join('');
+  if(actual) sel.value = actual;
+}
+function inventarioDe(codigo){
+  const k = String(codigo || '').trim().toLowerCase();
+  return db.inventory.filter(i => String(i.code || '').trim().toLowerCase() === k)[0] || null;
+}
+
+/* ==================== STOCK ACTUAL ==================== */
+function pintarStock(){
+  const texto = String($('buscarInv').value || '').toLowerCase().trim();
+  const soloBajo = $('soloBajo').checked;
+  const lista = db.inventory.filter(inv => {
+    const esBajo = String(inv.estado || '').toUpperCase() === 'BAJO';
+    if(soloBajo && !esBajo) return false;
+    if(!texto) return true;
+    return (String(inv.code) + ' ' + String(inv.desc)).toLowerCase().indexOf(texto) >= 0;
+  }).sort((a, b) => String(a.code).localeCompare(String(b.code)));
+
+  $('tbodyStock').innerHTML = lista.map(inv => {
+    const esBajo = String(inv.estado || '').toUpperCase() === 'BAJO';
+    const stock = Number(inv.stock) || 0;
+    const costo = Number(inv.costo) || 0;
+    const estado = esBajo
+      ? '<span class="pill bajo">Bajo</span>'
+      : '<span class="pill okb">OK</span>';
+    return '<tr>'
+      + '<td><b>' + esc(inv.code) + '</b></td>'
+      + '<td>' + esc(inv.desc) + '</td>'
+      + '<td class="num">' + stock + '</td>'
+      + '<td class="num">' + (Number(inv.reserved) || 0) + '</td>'
+      + '<td class="num">' + (Number(inv.available) || 0) + '</td>'
+      + '<td class="num">' + dinero(costo) + '</td>'
+      + '<td class="num">' + dinero(stock * costo) + '</td>'
+      + '<td class="num">' + (Number(inv.minStock) || 0) + '</td>'
+      + '<td>' + estado + '</td>'
+      + '</tr>';
+  }).join('');
+  $('vacioStock').style.display = lista.length ? 'none' : '';
+
+  // Resumen general (siempre sobre TODO el inventario, no lo filtrado)
+  let valor = 0, bajos = 0;
+  db.inventory.forEach(inv => {
+    valor += (Number(inv.stock) || 0) * (Number(inv.costo) || 0);
+    if(String(inv.estado || '').toUpperCase() === 'BAJO') bajos++;
+  });
+  $('rArticulos').textContent = db.inventory.length;
+  $('rValor').textContent = dinero(valor);
+  $('rBajo').textContent = bajos;
+}
+
+/* ==================== KARDEX ==================== */
+async function cargarKardex(){
+  const code = $('kardexProducto').value;
+  mostrarCarga(true, 'Cargando kardex…');
+  try{
+    const data = await apiCall('getKardex', { code: code });
+    kardexMovs = data.movimientos || [];
+    pintarKardex(!!code);
+    marcarDatosFrescos();
+  }catch(err){ avisar(err.message, true); }
+  mostrarCarga(false);
+}
+function pintarKardex(agrupado){
+  const movs = kardexMovs;
+  let html = '';
+  if(agrupado){
+    // Un solo artículo: se ordena por fecha y se listan corrido.
+    html = movs.map(filaMov).join('');
+  }else{
+    // Todos los artículos: se agrupa por código para que el saldo se lea bien.
+    const grupos = {};
+    const orden = [];
+    movs.forEach(m => {
+      const k = String(m.codigo || '').trim().toUpperCase();
+      if(!grupos[k]){ grupos[k] = []; orden.push(k); }
+      grupos[k].push(m);
+    });
+    orden.sort((a, b) => a.localeCompare(b));
+    orden.forEach(k => {
+      const grupo = grupos[k];
+      const desc = grupo.length ? grupo[0].desc : '';
+      html += '<tr class="grupoKardex"><td colspan="7">' + esc(k) + (desc ? ' — ' + esc(desc) : '') + '</td></tr>';
+      html += grupo.map(filaMov).join('');
+    });
+  }
+  $('tbodyKardex').innerHTML = html;
+  $('vacioKardex').style.display = movs.length ? 'none' : '';
+}
+function filaMov(m){
+  const q = Number(m.cantidad) || 0;
+  const tipoCls = m.tipo === 'Entrada' ? 'entrada' : (m.tipo === 'Salida' ? 'salida' : 'ajuste');
+  const cantTxt = (q > 0 ? '+' : '') + q;
+  return '<tr>'
+    + '<td>' + esc(m.fecha) + '</td>'
+    + '<td><span class="pill ' + tipoCls + '">' + esc(m.tipo) + '</span></td>'
+    + '<td>' + esc(m.ref) + '</td>'
+    + '<td>' + esc(m.detalle) + (m.desc ? ' · ' + esc(m.desc) : '') + '</td>'
+    + '<td class="num">' + cantTxt + '</td>'
+    + '<td class="num">' + (q < 0 ? '' : dinero(m.costo)) + '</td>'
+    + '<td class="num">' + (Number(m.saldo) || 0) + '</td>'
+    + '</tr>';
+}
+
+/* ==================== AJUSTES ==================== */
+async function cargarAjustes(){
+  mostrarCarga(true, 'Cargando ajustes…');
+  try{
+    const data = await apiCall('getAjustes');
+    pintarAjustes(data.ajustes || []);
+    marcarDatosFrescos();
+  }catch(err){ avisar(err.message, true); }
+  mostrarCarga(false);
+}
+function pintarAjustes(lista){
+  $('tbodyAjustes').innerHTML = lista.map(a => {
+    const q = Number(a.cantidad) || 0;
+    const cls = q >= 0 ? 'okb' : 'bajo';
+    return '<tr>'
+      + '<td>' + esc(a.fecha) + '</td>'
+      + '<td>' + esc(a.hora) + '</td>'
+      + '<td><b>' + esc(a.code) + '</b></td>'
+      + '<td>' + esc(a.desc) + '</td>'
+      + '<td class="num"><span class="pill ' + cls + '">' + (q > 0 ? '+' : '') + q + '</span></td>'
+      + '<td>' + esc(a.motivo) + '</td>'
+      + '<td>' + esc(a.documento) + '</td>'
+      + '<td>' + esc(a.usuario) + '</td>'
+      + '</tr>';
+  }).join('');
+  $('vacioAjustes').style.display = lista.length ? 'none' : '';
+}
+function mostrarStockAjuste(){
+  const inv = inventarioDe($('aCode').value);
+  const box = $('aStockActual');
+  if(inv){
+    const stock = Number(inv.stock) || 0;
+    const signo = Number($('aTipo').value) >= 0 ? 1 : -1;
+    const q = Number($('aCantidad').value) || 0;
+    box.textContent = 'Stock actual de ' + inv.code + ': ' + stock + ' · Después del ajuste quedaría: ' + (stock + signo * q);
+  }else{
+    box.textContent = '';
+  }
+}
+function limpiarAjuste(){
+  $('aFecha').value = hoy();
+  $('aCode').value = ''; $('aMotivo').value = ''; $('aDoc').value = '';
+  $('aTipo').value = '1'; $('aCantidad').value = '1';
+  mostrarStockAjuste();
+}
+function guardarAjuste(){
+  const code = $('aCode').value.trim();
+  if(!code){ avisar('Selecciona el artículo a ajustar.', true); return; }
+  const signo = Number($('aTipo').value) >= 0 ? 1 : -1;
+  const q = signo * (Number($('aCantidad').value) || 0);
+  if(!q){ avisar('La cantidad del ajuste no puede ser cero.', true); return; }
+  const motivo = $('aMotivo').value.trim();
+  if(!motivo){ avisar('Indica el motivo del ajuste.', true); return; }
+  const inv = inventarioDe(code);
+  const desc = inv ? inv.desc : '';
+  requireAdmin('Registrar un ajuste de inventario es una función de administrador y requiere la clave de administrador.', async () => {
+    mostrarCarga(true, 'Guardando ajuste…');
+    try{
+      await apiCall('saveAjuste', {
+        ajuste: {
+          fecha: $('aFecha').value || hoy(),
+          code: code, desc: desc, cantidad: q,
+          motivo: motivo, documento: $('aDoc').value.trim()
+        }
+      });
+      await cargar();
+      avisar('Ajuste registrado: ' + (q > 0 ? '+' : '') + q + ' de ' + code + '.');
+      limpiarAjuste();
+    }catch(err){ avisar(err.message, true); }
+    mostrarCarga(false);
+  });
+}
+
+/* ==================== CLAVE DE ADMINISTRADOR ==================== */
+let adminPending = null;
+function closeModal(id){ $(id).classList.remove('show'); }
+function closeAdminKey(ok){
+  const p = adminPending; adminPending = null;
+  closeModal('adminModal');
+  $('adminPassword').value = '';
+  $('adminError').textContent = '';
+  if(p) p.resolve(ok);
+}
+async function submitAdminKey(){
+  const pw = $('adminPassword').value;
+  if(!pw){ $('adminError').textContent = 'Ingresa la clave.'; return; }
+  mostrarCarga(true, 'Verificando clave de administrador…');
+  try{
+    const data = await apiCall('adminLogin', { password: pw });
+    adminToken = data.adminToken;
+    closeAdminKey(true);
+  }catch(e){ $('adminError').textContent = e.message; }
+  finally{ mostrarCarga(false); }
+}
+/** Pide la clave SIEMPRE: cada ajuste vuelve a pedirla. */
+function requireAdmin(mensaje, fn){
+  if(!conectado) return alert('Primero ingresa la contraseña de acceso.');
+  if(sesion && !sesion.soyAdmin){
+    return alert('Tu usuario "' + sesion.nombre + '" no es administrador.\n\n'
+      + 'Puedes consultar el stock y el kardex, pero no registrar ajustes de inventario.\n'
+      + 'Pídele a un administrador que lo haga, o que te cambie el rol en Usuarios.');
+  }
+  adminPending = { resolve: ok => { if(ok) fn(); } };
+  $('adminPrompt').textContent = mensaje || 'Esta acción requiere privilegios de administrador.';
+  $('adminError').textContent = '';
+  $('adminPassword').value = '';
+  $('adminModal').classList.add('show');
+  $('adminPassword').focus();
+}
+
+/* ==================== PRODUCTOS ==================== */
+let prodLista = [];
+function pintarProductos(){
+  prodLista = db.products.slice().sort((a, b) => String(a.code).localeCompare(String(b.code)));
+  $('tablaProductos').innerHTML = prodLista.length ? ('<table class="list"><thead><tr>'
+    + '<th>Código</th><th>Descripción</th><th class="num">Costo</th><th class="num">Precio</th>'
+    + '<th class="num">ITBMS %</th><th class="num">Stock</th><th class="num">Mínimo</th><th>Acción</th>'
+    + '</tr></thead><tbody>'
+    + prodLista.map((p, i) => {
+        const inv = inventarioDe(p.code);
+        const stock = inv ? Number(inv.stock) : 0;
+        const bajo = Number(p.minStock) > 0 && stock <= Number(p.minStock);
+        return '<tr' + (bajo ? ' style="background:#fff4e5"' : '') + '>'
+          + '<td><b>' + esc(p.code) + '</b></td>'
+          + '<td>' + esc(p.desc) + '</td>'
+          + '<td class="num">' + (Number(p.costo) ? dinero(p.costo) : '-') + '</td>'
+          + '<td class="num">' + dinero(p.price) + '</td>'
+          + '<td class="num">' + (Number(p.tax) || 0) + '</td>'
+          + '<td class="num">' + stock + (bajo ? ' <span class="pill bajo">bajo</span>' : '') + '</td>'
+          + '<td class="num">' + (Number(p.minStock) || 0) + '</td>'
+          + '<td><button class="gris" onclick="editarProducto(' + i + ')">Editar</button> '
+          + '<button class="danger" onclick="eliminarProducto(' + i + ')">Eliminar</button></td>'
+          + '</tr>';
+      }).join('')
+    + '</tbody></table>')
+    : '<p class="nota">Todavía no hay productos.</p>';
+}
+function editarProducto(i){
+  const p = prodLista[i]; if(!p) return;
+  $('pCode').value = p.code; $('pDesc').value = p.desc; $('pPrice').value = p.price; $('pTax').value = p.tax;
+  $('pCosto').value = p.costo || 0; $('pMin').value = p.minStock || 0;
+  $('pCode').dataset.original = p.code;
+  $('btnProduct').textContent = 'Actualizar producto';
+  $('btnCancelProduct').style.display = '';
+  $('productEditHint').style.display = '';
+  $('pCode').focus();
+}
+function cancelarProducto(){
+  ['pCode','pDesc','pPrice','pMin'].forEach(id => { $(id).value = ''; });
+  $('pTax').value = '0'; $('pCosto').value = '0';
+  delete $('pCode').dataset.original;
+  $('btnProduct').textContent = 'Guardar producto';
+  $('btnCancelProduct').style.display = 'none';
+  $('productEditHint').style.display = 'none';
+}
+async function guardarProducto(){
+  const code = $('pCode').value.trim();
+  if(!code){ avisar('Escribe el código del producto.', true); return; }
+  const original = $('pCode').dataset.original || '';
+  // Cambiar el código de un producto existente es delicado: el kardex y el
+  // historial de entradas/facturas quedan ligados al código anterior, así que
+  // el producto renombrado aparecería con el stock en cero. Se avisa antes.
+  if(original && original.toLowerCase() !== code.toLowerCase()){
+    const ok = confirm('Vas a cambiar el código de "' + original + '" a "' + code + '".\n\n'
+      + 'El historial de entradas, facturas y kardex sigue ligado al código anterior, '
+      + 'por lo que este producto aparecerá con el stock en cero.\n\n'
+      + 'Si solo quieres corregir la descripción, el precio o el mínimo, deja el código igual.\n\n'
+      + '¿Cambiar el código de todas formas?');
+    if(!ok) return;
+  }
+  mostrarCarga(true, 'Guardando producto…');
+  try{
+    await apiCall('saveProduct', { product: {
+      code: code, original: original,
+      desc: $('pDesc').value.trim(),
+      price: Number($('pPrice').value) || 0, tax: Number($('pTax').value) || 0,
+      costo: Number($('pCosto').value) || 0, minStock: Number($('pMin').value) || 0
+    }});
+    await cargar();
+    cancelarProducto();
+    avisar('Producto ' + code + ' guardado.');
+  }catch(err){ avisar(err.message, true); }
+  mostrarCarga(false);
+}
+function eliminarProducto(i){
+  const p = prodLista[i]; if(!p) return;
+  requireAdmin('Eliminar el producto "' + p.code + '" es una función de administrador y requiere la clave de administrador.', async () => {
+    mostrarCarga(true, 'Eliminando producto…');
+    try{
+      await apiCall('deleteProduct', { code: p.code });
+      await cargar();
+      avisar('Producto eliminado.');
+    }catch(err){ avisar(err.message, true); }
+    mostrarCarga(false);
+  });
+}
+
+/* ==================== TABS ==================== */
+function tab(id){
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  $(id).classList.add('active');
+  if(id === 'productos') pintarProductos();
+}
+
+/* ==================== DATOS VIEJOS ==================== */
+function marcarDatosFrescos(horaServidor){
+  datosCargadosEn = Date.now();
+  const ship = $('staleWho');
+  if(ship && horaServidor) ship.textContent = 'Últimos cambios en el servidor: ' + horaServidor + '.';
+  arrancarRelojViejos();
+}
+function arrancarRelojViejos(){
+  pararRelojViejos();
+  relojViejos = setInterval(revisarDatosViejos, 30000);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) revisarDatosViejos(); });
+}
+function pararRelojViejos(){ if(relojViejos){ clearInterval(relojViejos); relojViejos = null; } }
+function revisarDatosViejos(){
+  if(!conectado || !datosCargadosEn) return;
+  const m = (Date.now() - datosCargadosEn) / 60000;
+  if(m < MINUTOS_VIEJOS) return;
+  $('staleWhen').textContent = 'Los datos que ves se descargaron hace ' + Math.floor(m) + ' min.';
+  $('staleBar').classList.add('show');
+}
+function cerrarAvisoViejo(){ $('staleBar').classList.remove('show'); }
+
+/* ==================== UTILIDADES ==================== */
+function mostrarCarga(on, texto){
+  const o = $('loadingOverlay');
+  o.classList.toggle('show', on);
+  if(on && texto) o.firstElementChild.textContent = texto;
+}
+function avisar(texto, esError){
+  const box = $('avisoVivo');
+  const div = document.createElement('div');
+  div.style.cssText = 'padding:10px 14px;border-radius:8px;font-size:13px;max-width:340px;'
+    + (esError ? 'background:#fbe9e9;color:#a12b2b;border:1px solid #e0a0a0' : 'background:#e6f4ec;color:#1c7c4d;border:1px solid #a0d4b0');
+  div.textContent = texto;
+  box.appendChild(div);
+  setTimeout(() => div.remove(), esError ? 6000 : 3500);
+}
+function esc(s){
+  return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function dinero(n){ return '$' + (Number(n) || 0).toFixed(2); }
+function hoy(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+$('aFecha').value = hoy();
+</script>
+</body></html>

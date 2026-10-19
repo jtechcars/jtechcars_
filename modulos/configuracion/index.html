@@ -1,0 +1,752 @@
+<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JTech &amp; Cars - Configuración</title>
+<meta name="description" content="Administración del sistema: usuarios, bitácora, datos del negocio y respaldos.">
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eee;font-family:Arial;color:#222}
+.app{max-width:1250px;margin:18px auto;background:#fff;box-shadow:0 2px 12px #aaa}
+.bar{background:#222;color:#fff;padding:12px 18px}.connbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+#connStatus{font-size:13px;opacity:.85}.connbar button{background:#fff;color:#222}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;background:#f3f3f3;padding:12px 18px}
+button{padding:9px 13px;border:0;border-radius:5px;cursor:pointer;font-weight:bold}
+.primary{background:#222;color:#fff}.azul{background:#005A82;color:#fff}.danger{background:#a00;color:#fff}
+.ok{background:#2a7;color:#fff}.warn{background:#b58900;color:#fff}.gris{background:#eee;color:#222;font-weight:normal}
+.panel{display:none;padding:24px}.active{display:block}
+h2.seccion{margin:0 0 4px;font-size:19px;color:#005A82}
+.aviso{font-size:13px;color:#666;margin:0 0 16px}
+label{font-weight:bold;font-size:13px;display:block}
+input,textarea,select{width:100%;padding:8px;border:1px solid #aaa;border-radius:4px;margin-top:5px;font:inherit}
+textarea{min-height:70px}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0}
+.grid.dos{grid-template-columns:1fr 1fr}
+.grid.tres{grid-template-columns:repeat(3,1fr)}
+table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #aaa;padding:7px;text-align:left;vertical-align:top}
+th{background:#eee;font-size:13px}
+.num{text-align:right;white-space:nowrap}
+.list button{padding:5px 8px;font-size:12px;margin:2px 0}
+.list td,.list th{border-left:0;border-right:0}
+.acciones{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}
+.pill{display:inline-block;padding:2px 9px;border-radius:10px;font-size:12px;color:#fff;white-space:nowrap}
+.pill.admin{background:#005A82}.pill.vendedor{background:#2a7}.pill.bajo{background:#a00}.pill.okb{background:#2a7}
+.filterbar{display:flex;gap:6px;margin:6px 0 14px;flex-wrap:wrap;align-items:center}
+.filterbar button{background:#eee;color:#222;font-weight:normal;font-size:13px}
+.filterbar button.active{background:#222;color:#fff}
+.search{flex:1;min-width:190px;max-width:320px;margin:0!important}
+.nota{font-size:12.5px;color:#666;line-height:1.7}
+.status{font-size:13px;color:#666}
+.kv{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-top:8px}
+.kv div{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed #ddd;padding:5px 0;font-size:13px}
+.kv span{color:#666}.kv b{color:#222;text-align:right}
+.modal{display:none;position:fixed;inset:0;background:#0008;align-items:center;justify-content:center;z-index:999}
+.modal.show{display:flex}
+.modalbox{background:#fff;padding:20px;max-width:720px;width:92%;border-radius:6px;max-height:92vh;overflow:auto}
+#loadingOverlay{display:none;position:fixed;inset:0;background:#0009;align-items:center;justify-content:center;color:#fff;font-size:17px;z-index:1000}
+#loadingOverlay.show{display:flex}
+#userBadge{font-size:13px;background:#005A82;color:#fff;padding:3px 10px;border-radius:11px;display:none}
+#staleBar{display:none;padding:11px 18px;background:#fff4d6;border-bottom:1px solid #e0b95a;color:#6b4c00;align-items:center;gap:12px;flex-wrap:wrap}
+#staleBar.show{display:flex}#staleBar button{background:#b58900;color:#fff}
+#avisosLogin{display:none;margin:0 0 12px;padding:10px 12px;border:1px solid #e0b95a;background:#fff9e8;border-radius:5px;font-size:13px;line-height:1.5}
+#avisosLogin.show{display:block}
+.modwrap{margin:14px 0}
+.modlabel{font-weight:bold;font-size:13px;display:block;margin-bottom:6px}
+.mods{display:flex;flex-wrap:wrap;gap:8px}
+.mods .mod{display:inline-flex;align-items:center;gap:7px;border:1px solid #aaa;background:#fff;border-radius:99px;padding:7px 13px;cursor:pointer;font-size:13px;font-weight:bold}
+.mods .mod input{width:auto;margin:0}
+.mods .mod.on{border-color:#005A82;background:#e7f2f8;color:#005A82}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+input[type=number]{-moz-appearance:textfield}
+@media(max-width:820px){.grid{grid-template-columns:1fr 1fr}.grid.dos,.grid.tres{grid-template-columns:1fr}.kv{grid-template-columns:1fr}}
+@media(max-width:520px){.grid{grid-template-columns:1fr}}
+@media print{body{background:#fff}.app{margin:0;box-shadow:none}.bar,.tabs,.no-print{display:none!important}.panel{padding:0}}
+/* TEMA VISUAL — igual estilo que Facturación, Ventas y Compras */
+@media screen{
+  :root{
+    --brand:#005A82;--brand2:#0b7ea8;--brandSoft:#e7f2f8;
+    --bg:#eef2f6;--card:#fff;--line:#dbe3ec;--line2:#c7d3e0;
+    --txt:#1e2b38;--muted:#5a6a7f;--ok:#1c7c4d;--okSoft:#e6f4ec;
+    --warn:#7d5600;--warnSoft:#fdf3dd;--bad:#a12b2b;--badSoft:#fbe9e9;--off:#5f6f82;
+  }
+  body{background:var(--bg);color:var(--txt);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,Helvetica,sans-serif}
+  .app{max-width:none;width:100%;margin:0;min-height:100vh;background:var(--bg);border:0;border-radius:0;box-shadow:none;
+    display:flex;flex-direction:column}
+  .bar{background:#fff;color:var(--txt);border-bottom:1px solid var(--line);padding:12px 18px;border-radius:0}
+  .connbar b{color:var(--brand);font-size:15px}
+  #connStatus{color:var(--muted);opacity:1}
+  #userBadge{background:var(--brandSoft);color:var(--brand);border-radius:99px;padding:3px 11px;font-weight:600}
+  .tabs{background:#fff;color:var(--txt);border-bottom:1px solid var(--line);padding:0 12px;gap:2px}
+  .tabs button{background:transparent;color:var(--muted);border-radius:0;border-bottom:3px solid transparent;
+    padding:11px 13px;font-weight:600}
+  .tabs button:hover{color:var(--txt);background:#f7fafc}
+  .panel{padding:18px;max-width:1200px;width:100%;margin:0 auto}
+  h2.seccion{color:var(--brand)}
+  .aviso{color:var(--muted);background:var(--brandSoft);border-left:3px solid var(--brand2);
+    padding:9px 12px;border-radius:8px}
+  label{font-weight:600;font-size:12.5px;color:var(--muted)}
+  input,textarea,select{border:1px solid var(--line2);border-radius:6px;padding:9px 10px;
+    font:inherit;font-size:13.5px;background:#fff;color:var(--txt)}
+  input:focus,textarea:focus,select:focus{outline:2px solid #b7dcec;border-color:var(--brand2)}
+  button{background:#fff;border:1px solid var(--line2);color:var(--txt);border-radius:6px;
+    padding:9px 14px;font-weight:600;cursor:pointer}
+  button:hover{border-color:var(--brand2);background:#f2f6fa}
+  button.primary,.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+  button.primary:hover,.primary:hover{background:var(--brand2);border-color:var(--brand2)}
+  button.azul,.azul{background:var(--brand2);border-color:var(--brand2);color:#fff}
+  button.ok,.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+  button.warn,.warn{background:var(--warn);border-color:var(--warn);color:#fff}
+  button.danger,.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+  button.gris,.gris{background:#eef1f5;border-color:var(--line2);color:var(--off);font-weight:600}
+  .filterbar button{background:#eef1f5;border-color:var(--line2);color:var(--off);font-weight:600}
+  .filterbar button.active{background:var(--brand);border-color:var(--brand);color:#fff}
+  .search{max-width:320px}
+  .list{width:100%;border-collapse:collapse;font-size:13px;border:1px solid var(--line);
+    border-radius:10px;overflow:hidden}
+  .list th,.list td{border:0;border-bottom:1px solid var(--line);padding:9px 10px;text-align:left;vertical-align:middle}
+  .list th{background:#f7fafc;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+  .list tr:hover td{background:#f7fafc}
+  .pill{border-radius:99px;padding:2px 9px;font-weight:700;font-size:10.5px;letter-spacing:.4px;text-transform:uppercase}
+  .pill.admin{background:var(--brandSoft);color:var(--brand)}
+  .pill.vendedor{background:var(--okSoft);color:var(--ok)}
+  .pill.bajo{background:var(--badSoft);color:var(--bad)}
+  .pill.okb{background:var(--okSoft);color:var(--ok)}
+  .kv div{border-bottom:1px solid var(--line)}
+  .kv span{color:var(--muted)}.kv b{color:var(--txt)}
+  .status{color:var(--muted)}
+  .modlabel{font-weight:600;font-size:12.5px;color:var(--muted)}
+  .mods .mod{border:1px solid var(--line2);background:#fff;color:var(--off);font-weight:600;font-size:13px}
+  .mods .mod.on{background:var(--brandSoft);border-color:var(--brand2);color:var(--brand)}
+  .mods .mod:has(input:checked){background:var(--brandSoft);border-color:var(--brand2);color:var(--brand)}
+  .modalbox{border:1px solid var(--line);border-radius:12px;box-shadow:0 20px 60px #0007}
+  #loadingOverlay{background:#0a1e2ecc}
+  #staleBar{background:var(--warnSoft);border-bottom:1px solid #e0b95a;color:var(--warn)}
+  #staleBar button{background:var(--warn);color:#fff}
+  #avisosLogin{border:1px solid #e0b95a;background:#fff9e8}
+}
+</style></head><body>
+<div class="app">
+
+  <!-- ============ ENCABEZADO ============ -->
+  <div class="bar no-print"><div class="connbar">
+    <b>JTech &amp; Cars — Configuración</b>
+    <span id="connStatus">🔒 Bloqueado</span>
+    <span id="userBadge"></span>
+    <span class="no-print">
+      <button onclick="openChangePw()">🔑 Cambiar contraseña</button>
+      <button onclick="logout()">Cerrar sesión</button>
+    </span>
+  </div></div>
+  <div id="staleBar" class="no-print"><b>⏳ Estos datos tienen algunos minutos de atraso.</b><span id="staleWhen"></span> <span id="staleWho"></span> <button onclick="cargar()">🔄 Actualizar ahora</button><button class="primary" onclick="cerrarAvisoViejo()">Seguir viendo así</button></div>
+
+  <div class="tabs no-print">
+    <button onclick="tab('datos')">🏢 Datos del negocio</button>
+    <button onclick="tab('usuarios')">👥 Usuarios</button>
+    <button onclick="tab('bitacora')">📋 Bitácora</button>
+    <button onclick="tab('respaldos')">💾 Respaldos</button>
+  </div>
+
+  <!-- ============ DATOS DEL NEGOCIO ============ -->
+  <section id="datos" class="panel active">
+    <h2 class="seccion">Datos del negocio</h2>
+    <p class="aviso">Datos generales de la empresa que se usan en facturas y cotizaciones. Para modificarlos, edita la hoja <b>Config</b> de Google Sheets (el parámetro y su valor).</p>
+    <div id="kvConfig"></div>
+    <p id="vacioConfig" class="status" style="display:none">Todavía no hay datos configurados. Agrega filas en la hoja <b>Config</b> de Google Sheets con el parámetro y su valor (por ejemplo: <code>EMPRESA_NOMBRE</code> / <code>JTech &amp; Cars</code>).</p>
+    <div class="acciones no-print"><button class="gris" onclick="cargar()">🔄 Actualizar</button></div>
+  </section>
+
+  <!-- ============ USUARIOS ============ -->
+  <section id="usuarios" class="panel">
+    <h2 class="seccion">👥 Usuarios del sistema</h2>
+    <p class="aviso">Cada persona entra con su usuario y su contraseña. Así el sistema sabe quién registró cada factura, pedido, entrada o abono, y un vendedor no puede borrar nada aunque tenga la contraseña general.</p>
+
+    <div id="userTable"></div>
+
+    <h2 class="seccion" id="formUserTitle" style="margin-top:22px">Agregar usuario</h2>
+    <div class="grid">
+      <div><label for="uUser">Usuario *</label><input id="uUser" placeholder="Ej: vendedor2" autocapitalize="none"><span class="status">Minúscula, sin espacios (letras, números, punto, guion).</span></div>
+      <div><label for="uName">Nombre completo *</label><input id="uName" placeholder="Ej: Ana Rodríguez"></div>
+      <div><label for="uPass">Contraseña <span id="uPassOblig" class="status">(mínimo 6 caracteres)</span></label><input type="password" id="uPass" placeholder="La clave con la que entrará"></div>
+      <div><label for="uRole">Rol</label><select id="uRole" onchange="uRolCambio()"><option value="vendedor">Vendedor — registra y consulta</option><option value="admin">Administrador — además edita y elimina</option></select></div>
+    </div>
+    <div class="modwrap" id="uModsWrap">
+      <span class="modlabel">Módulos que podrá abrir</span>
+      <div class="mods" id="uMods"></div>
+      <p class="status" style="margin:7px 0 0;font-size:12.5px" id="uModsNota">Marca en cuáles módulos podrá entrar esta persona. Si el rol es <b>Administrador</b> tendrá todos los módulos sin importar la selección.</p>
+    </div>
+    <p id="uError" style="color:#a00;font-size:13px;min-height:18px"></p>
+    <div class="acciones no-print">
+      <button class="primary" onclick="guardarUsuario()">Guardar usuario</button>
+      <button class="gris" id="uCancel" onclick="cancelarUsuario()" style="display:none">Cancelar</button>
+    </div>
+  </section>
+
+  <!-- ============ BITÁCORA ============ -->
+  <section id="bitacora" class="panel">
+    <h2 class="seccion">📋 Bitácora: quién hizo qué</h2>
+    <p class="aviso">Aquí queda anotado cada cambio: quién lo hizo, qué documento tocó y a qué hora. Sirve para saber quién facturó, quién editó y quién borró.</p>
+    <div class="filterbar no-print">
+      <button class="bfilt active" data-b="todos" onclick="setBitacoraFiltro('todos')">Todo</button>
+      <button class="bfilt" data-b="Factura" onclick="setBitacoraFiltro('Factura')">Facturas</button>
+      <button class="bfilt" data-b="Cotización" onclick="setBitacoraFiltro('Cotización')">Cotizaciones</button>
+      <button class="bfilt" data-b="Abono" onclick="setBitacoraFiltro('Abono')">Abonos</button>
+      <button class="bfilt" data-b="Producto" onclick="setBitacoraFiltro('Producto')">Productos</button>
+      <button class="bfilt" data-b="Cliente" onclick="setBitacoraFiltro('Cliente')">Clientes</button>
+      <button class="bfilt" data-b="Usuario" onclick="setBitacoraFiltro('Usuario')">Accesos</button>
+    </div>
+    <div class="filterbar no-print"><input class="search" id="bitacoraSearch" placeholder="Buscar por persona, número o detalle" oninput="bitacoraRender()"> <button onclick="cargarBitacora()">🔄 Actualizar</button></div>
+    <div id="bitacoraBody"></div>
+  </section>
+
+  <!-- ============ RESPALDOS ============ -->
+  <section id="respaldos" class="panel">
+    <h2 class="seccion">💾 Respaldos</h2>
+    <p class="aviso">Descarga los clientes y productos en un archivo <b>.json</b> para tener una copia de seguridad. También puedes restaurar ese archivo para volver a cargarlos en Google Sheets.</p>
+    <div class="grid dos">
+      <div class="card" style="border:1px solid var(--line);border-radius:10px;padding:16px">
+        <h3 style="margin:0 0 6px;color:var(--brand)">⬇️ Descargar respaldo</h3>
+        <p class="status">Guarda una copia de tus clientes y productos en tu computadora.</p>
+        <div class="acciones"><button class="azul" onclick="backup()">Descargar respaldo (.json)</button></div>
+      </div>
+      <div class="card" style="border:1px solid var(--line);border-radius:10px;padding:16px">
+        <h3 style="margin:0 0 6px;color:var(--brand)">⬆️ Restaurar respaldo</h3>
+        <p class="status">Carga un archivo <b>.json</b> previamente descargado. Se agregarán o actualizarán los clientes y productos que contenga.</p>
+        <div class="acciones"><button class="warn" onclick="restoreFile()">Restaurar desde archivo</button></div>
+        <input id="restore" type="file" accept=".json" style="display:none" onchange="restore(event)">
+      </div>
+    </div>
+    <p class="nota">El respaldo incluye clientes y productos. Los documentos (facturas, cotizaciones, abonos) y la bitácora viven directamente en Google Sheets y no se descargan desde aquí.</p>
+  </section>
+
+</div>
+
+<!-- ============ MODAL: CAMBIAR CONTRASEÑA ============ -->
+<div class="modal" id="changePwModal"><div class="modalbox">
+  <h3 id="changePwTitle">Cambiar contraseña</h3>
+  <label for="pwActual">Contraseña actual</label><input type="password" id="pwActual">
+  <label for="pwNueva">Contraseña nueva (mínimo 6 caracteres)</label><input type="password" id="pwNueva">
+  <p id="pwError" style="color:#a00;font-size:13px;min-height:18px"></p>
+  <div class="acciones">
+    <button class="primary" onclick="doChangePw()">Guardar</button>
+    <button onclick="closeModal('changePwModal')">Cancelar</button>
+  </div>
+</div></div>
+
+<!-- ============ MODAL: CLAVE DE ADMINISTRADOR ============ -->
+<div class="modal" id="adminModal"><div class="modalbox">
+  <h3>🔐 Función de administrador</h3>
+  <p id="adminPrompt">Esta acción está reservada para el administrador.</p>
+  <label for="adminPassword">Clave de administrador</label>
+  <input type="password" id="adminPassword" onkeydown="if(event.key==='Enter')submitAdminKey()">
+  <p id="adminError" style="color:#a00;font-size:13px;min-height:18px"></p>
+  <div class="acciones">
+    <button class="primary" onclick="submitAdminKey()">Verificar y continuar</button>
+    <button onclick="closeAdminKey(false)">Cancelar</button>
+  </div>
+</div></div>
+
+<!-- ============ PANTALLA DE ACCESO ============ -->
+<div class="modal show" id="lockScreen"><div class="modalbox">
+  <h3>🔒 Acceso restringido</h3>
+  <p>Ingresa tu usuario y tu contraseña para administrar el sistema.</p>
+  <div id="avisosLogin"></div>
+  <label for="lockUser">Usuario</label>
+  <input id="lockUser" autocapitalize="none" autocomplete="username" placeholder="Tu usuario (si lo tienes)" onkeydown="if(event.key==='Enter')entrar()">
+  <label for="lockPassword">Contraseña</label>
+  <input type="password" id="lockPassword" autocomplete="current-password" onkeydown="if(event.key==='Enter')entrar()">
+  <p class="nota" style="margin-top:6px">Si dejas el usuario vacío entras con la contraseña general del sistema.</p>
+  <p id="lockError" style="color:#a00;font-size:13px;min-height:18px"></p>
+  <div class="acciones"><button class="primary" onclick="entrar()">Entrar</button></div>
+</div></div>
+
+<div id="loadingOverlay"><div id="loadingMsg">Cargando…</div></div>
+<div id="avisoVivo" style="position:fixed;right:16px;bottom:16px;z-index:1200;display:flex;flex-direction:column;gap:8px"></div>
+
+<script>
+/* ======================================================================
+   MODULO DE CONFIGURACIÓN: usuarios, bitácora, datos y respaldos.
+   Usa la misma contraseña y la misma base de datos que Facturación,
+   Ventas y Compras. Es el panel de administración del sistema.
+   ====================================================================== */
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyCvf1AOiUGRuqR7W_a-8t6ERQdEjR3mVjlayuaDwapoOJNN5dYbwWllcF_burJBlH4/exec";
+/* Acciones que exigen la clave de administrador: el token de admin es de
+   un solo uso y se descarta tras emplearse. */
+const ACCIONES_ADMIN = ['crearUsuario','editarUsuario','deleteUsuario'];
+/* Módulos del ERP que se le pueden otorgar a un usuario. El orden y las
+   claves deben coincidir con MODULOS_ERP del backend. */
+const MODULOS_DISPONIBLES = [
+  { clave: 'facturacion',   nombre: 'Facturación' },
+  { clave: 'ventas',        nombre: 'Ventas y pedidos' },
+  { clave: 'compras',       nombre: 'Compras' },
+  { clave: 'inventario',    nombre: 'Inventario' },
+  { clave: 'gastos',        nombre: 'Gastos' },
+  { clave: 'caja',          nombre: 'Caja' },
+  { clave: 'clientes',      nombre: 'Clientes y CRM' },
+  { clave: 'reportes',      nombre: 'Reportes' },
+  { clave: 'configuracion', nombre: 'Configuración' }
+];
+const MARCA_OCUPADO = 'SISTEMA_OCUPADO';
+const REINTENTOS_OCUPADO = 3;
+const ESPERAS_OCUPADO = [900, 2000, 3500];
+const MINUTOS_VIEJOS = 3;
+const $ = id => document.getElementById(id);
+const dormir = ms => new Promise(r => setTimeout(r, ms));
+
+let sessionToken = null;
+let adminToken = null;
+let connected = false;
+let sesion = null;
+let db = { config:{}, usuarios:[], clients:[], products:[] };
+let bitacora = [], filtroBitacora = 'todos';
+let editandoUsuario = null;
+let adminPending = null;
+let datosCargadosEn = 0;
+let relojViejos = null;
+
+/* ==================== COMUNICACIÓN ==================== */
+async function apiCallOnce(action, payload){
+  payload = payload || {};
+  if(!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('PEGA_AQUI') === 0){
+    throw new Error('Falta configurar APPS_SCRIPT_URL con la URL de tu Web App de Google Apps Script.');
+  }
+  let res;
+  try{
+    res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: action, token: sessionToken, adminToken: adminToken, ...payload })
+    });
+  }catch(err){
+    throw new Error('No se pudo conectar con el servidor. Revisa tu internet y recarga con Ctrl+F5.');
+  }
+  if(!res.ok) throw new Error('Error de red (' + res.status + ').');
+  let data;
+  try{ data = await res.json(); }catch(err){
+    throw new Error('El servidor no devolvió una respuesta válida.');
+  }
+  if(!data.ok){
+    if(String(data.error || '').indexOf('Sesión inválida') === 0) sesionCerrada();
+    throw new Error(data.error || 'Error desconocido del servidor.');
+  }
+  /* El token de administrador es de un solo uso: se descarta al emplearlo,
+     así la próxima vez que edites vuelvas a teclear la clave. */
+  if(ACCIONES_ADMIN.indexOf(action) >= 0) adminToken = null;
+  return data.data;
+}
+async function apiCall(action, payload){
+  for(let i = 0; ; i++){
+    try{ return await apiCallOnce(action, payload); }
+    catch(err){
+      const msg = String(err.message || '');
+      if(msg.indexOf(MARCA_OCUPADO) >= 0 && i < REINTENTOS_OCUPADO){
+        await dormir(ESPERAS_OCUPADO[i]); continue;
+      }
+      throw err;
+    }
+  }
+}
+
+/* ==================== ACCESO ==================== */
+async function entrar(){
+  const usuario = $('lockUser').value.trim();
+  const clave = $('lockPassword').value;
+  $('lockError').textContent = '';
+  mostrarCarga(true, 'Verificando contraseña…');
+  try{
+    const data = await apiCall('login', { user: usuario, password: clave, modulo: 'configuracion' });
+    sessionToken = data.token; adminToken = null; connected = true;
+    sesion = { usuario: data.usuario || '', nombre: data.nombre || 'Administrador',
+               rol: data.rol || 'admin', soyAdmin: !!data.soyAdmin };
+    $('lockScreen').classList.remove('show');
+    $('connStatus').textContent = '🔓 Sesión activa';
+    pintarSesion();
+    await cargar();
+    pintarAvisos(data.avisos || []);
+    tab('datos');
+  }catch(err){ $('lockError').textContent = err.message; }
+  finally{ mostrarCarga(false); $('lockPassword').value = ''; }
+}
+function pintarSesion(){
+  const b = $('userBadge');
+  b.textContent = sesion.nombre + (sesion.usuario ? ' (' + sesion.usuario + ')' : '')
+    + ' · ' + (sesion.soyAdmin ? 'Administrador' : 'Vendedor');
+  b.style.display = '';
+  $('changePwTitle').textContent = sesion.usuario ? 'Cambiar mi contraseña' : 'Cambiar la contraseña general del sistema';
+}
+function pintarAvisos(lista){
+  const box = $('avisosLogin');
+  if(!lista || !lista.length){ box.className = ''; box.textContent = ''; return; }
+  box.textContent = lista.join(' '); box.className = 'show';
+}
+function logout(){
+  apiCall('logout', {}).catch(() => {});
+  sessionToken = null; adminToken = null; connected = false; sesion = null;
+  pararRelojViejos(); cerrarAvisoViejo();
+  $('connStatus').textContent = '🔒 Bloqueado';
+  $('userBadge').style.display = 'none';
+  $('lockPassword').value = ''; $('lockUser').value = '';
+  $('lockScreen').classList.add('show');
+}
+function sesionCerrada(){
+  if(!sessionToken) return;
+  sessionToken = null; adminToken = null; connected = false; sesion = null;
+  pararRelojViejos(); cerrarAvisoViejo();
+  $('connStatus').textContent = '🔒 Sesión cerrada';
+  $('userBadge').style.display = 'none';
+  $('lockError').textContent = 'Tu sesión se cerró. Vuelve a entrar (puede que un administrador haya cambiado tu clave o desactivado tu usuario).';
+  $('lockScreen').classList.add('show');
+}
+
+/* ==================== CAMBIAR CONTRASEÑA ==================== */
+function openChangePw(){ $('pwError').textContent=''; $('pwActual').value=''; $('pwNueva').value=''; $('changePwModal').classList.add('show'); }
+async function doChangePw(){
+  $('pwError').textContent='';
+  mostrarCarga(true, 'Actualizando contraseña…');
+  try{
+    const r = await apiCall('changePassword', { actual: $('pwActual').value, nueva: $('pwNueva').value });
+    closeModal('changePwModal');
+    if(sesion && sesion.usuario) sesionCerrada();   // el servidor cerró las otras sesiones
+    else alert(r.aviso || 'Contraseña actualizada correctamente.');
+  }catch(e){ $('pwError').textContent = e.message; }
+  finally{ mostrarCarga(false); }
+}
+
+/* ==================== CLAVE DE ADMINISTRADOR ==================== */
+function closeAdminKey(ok){
+  const p = adminPending; adminPending = null;
+  closeModal('adminModal');
+  $('adminPassword').value = '';
+  $('adminError').textContent = '';
+  if(p) p.resolve(ok);
+}
+async function submitAdminKey(){
+  const pw = $('adminPassword').value;
+  if(!pw){ $('adminError').textContent = 'Ingresa la clave.'; return; }
+  mostrarCarga(true, 'Verificando clave de administrador…');
+  try{
+    const data = await apiCall('adminLogin', { password: pw });
+    adminToken = data.adminToken;
+    closeAdminKey(true);
+  }catch(e){ $('adminError').textContent = e.message; }
+  finally{ mostrarCarga(false); }
+}
+/** Pide la clave SIEMPRE: cada editar/eliminar vuelve a pedirla. */
+function requireAdmin(mensaje, fn){
+  if(!connected) return alert('Primero ingresa la contraseña de acceso.');
+  if(sesion && !sesion.soyAdmin){
+    return alert('Tu usuario "' + sesion.nombre + '" no es administrador.\n\n'
+      + 'Puedes consultar, pero no editar ni eliminar usuarios ni ver todo.\n'
+      + 'Pídele a un administrador que lo haga, o que te cambie el rol en Usuarios.');
+  }
+  adminPending = { resolve: ok => { if(ok) fn(); } };
+  $('adminPrompt').textContent = mensaje || 'Esta acción requiere privilegios de administrador.';
+  $('adminError').textContent = '';
+  $('adminPassword').value = '';
+  $('adminModal').classList.add('show');
+  $('adminPassword').focus();
+}
+
+/* ==================== DATOS ==================== */
+async function cargar(){
+  mostrarCarga(true, 'Cargando datos…');
+  try{
+    const data = await apiCall('bootstrap');
+    db.config = data.config || {};
+    db.usuarios = data.usuarios || [];
+    db.clients = data.clients || [];
+    db.products = data.products || [];
+    if(data.sesion){
+      sesion = { usuario: data.sesion.usuario || '', nombre: data.sesion.nombre || 'Administrador',
+                 rol: data.sesion.rol || 'admin', soyAdmin: !!data.sesion.soyAdmin };
+      pintarSesion();
+    }
+    pintarConfig();
+    userRender();
+    marcarDatosFrescos(data.servidorAhora);
+  }catch(err){ avisar(err.message, true); }
+  finally{ mostrarCarga(false); }
+}
+
+/* Etiquetas legibles para los parámetros más comunes de la hoja Config. */
+const ETIQUETAS_CONFIG = {
+  EMPRESA_NOMBRE: 'Nombre de la empresa', EMPRESA_RUC: 'RUC / NIT', EMPRESA_DIRECCION: 'Dirección',
+  EMPRESA_TELEFONO: 'Teléfono', EMPRESA_CORREO: 'Correo', EMPRESA_WEB: 'Sitio web',
+  EMPRESA_LOGO: 'URL del logo', MONEDA: 'Moneda', ITBMS: 'ITBMS (%)',
+  TERMINOS: 'Términos / condiciones', PIE_FACTURA: 'Pie de factura',
+  FACTURA_PREFIJO: 'Prefijo de factura', COTIZACION_PREFIJO: 'Prefijo de cotización'
+};
+const ORDEN_CONFIG = ['EMPRESA_NOMBRE','EMPRESA_RUC','EMPRESA_DIRECCION','EMPRESA_TELEFONO','EMPRESA_CORREO',
+  'EMPRESA_WEB','EMPRESA_LOGO','MONEDA','ITBMS','FACTURA_PREFIJO','COTIZACION_PREFIJO','TERMINOS','PIE_FACTURA'];
+function pintarConfig(){
+  const cfg = db.config || {};
+  const claves = Object.keys(cfg).filter(k => cfg[k] !== '' && cfg[k] !== undefined && cfg[k] !== null);
+  if(!claves.length){ $('kvConfig').innerHTML = ''; $('vacioConfig').style.display = ''; return; }
+  $('vacioConfig').style.display = 'none';
+  /* Primero las claves conocidas en orden, luego el resto en orden alfabético. */
+  const conocidas = ORDEN_CONFIG.filter(k => claves.indexOf(k) >= 0);
+  const resto = claves.filter(k => conocidas.indexOf(k) < 0).sort();
+  const lista = conocidas.concat(resto);
+  $('kvConfig').innerHTML = '<div class="kv">' + lista.map(k => {
+    const etiqueta = ETIQUETAS_CONFIG[k] || k.replace(/_/g, ' ');
+    return '<div><span>' + esc(etiqueta) + '</span><b>' + esc(cfg[k]) + '</b></div>';
+  }).join('') + '</div>';
+}
+
+/* ==================== USUARIOS (solo administradores) ==================== */
+/* ---------- casillas de módulos del formulario de usuario ---------- */
+function uModsRender(){
+  $('uMods').innerHTML = MODULOS_DISPONIBLES.map(m =>
+    '<label class="mod"><input type="checkbox" value="' + m.clave + '" onchange="uRolCambio()"> ' + esc(m.nombre) + '</label>'
+  ).join('');
+}
+function uModsLeer(){
+  return Array.prototype.slice.call($('uMods').querySelectorAll('input:checked')).map(i => i.value);
+}
+function uModsMarcar(lista){
+  const set = {};
+  (lista || []).forEach(k => set[k] = true);
+  $('uMods').querySelectorAll('input').forEach(i => { i.checked = !!set[i.value]; });
+}
+function uModsTodos(){
+  $('uMods').querySelectorAll('input').forEach(i => { i.checked = true; });
+}
+/* Un administrador siempre tiene todos los módulos: se marcan y se bloquean
+   para que quede claro que no se pueden quitar. */
+function uRolCambio(){
+  const esAdmin = $('uRole').value === 'admin';
+  if(esAdmin) uModsTodos();
+  $('uMods').querySelectorAll('input').forEach(i => { i.disabled = esAdmin; });
+  $('uModsNota').style.display = '';
+}
+function userRender(){
+  const lista = db.usuarios || [];
+  if(!(sesion && sesion.soyAdmin)){
+    $('userTable').innerHTML = '<p class="status">Tu usuario no es administrador, así que no puede ver ni cambiar la lista de usuarios.</p>';
+    return;
+  }
+  if(!lista.length){
+    $('userTable').innerHTML = '<p class="status">Todavía no hay usuarios propios. Pide a quien administra el sistema que ejecute CONFIGURAR_USUARIOS() en Apps Script, '
+      + 'o agrégalos aquí mismo con el formulario de abajo.</p>';
+    return;
+  }
+  let h = '<table class="list"><thead><tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Módulos</th><th>Estado</th><th class="no-print">Acción</th></tr></thead><tbody>';
+  lista.forEach(u => {
+    const yo = sesion.usuario && u.usuario === sesion.usuario;
+    const esAdmin = u.rol === 'admin';
+    const nombres = (u.modulos || []).map(c => {
+      const m = MODULOS_DISPONIBLES.filter(x => x.clave === c)[0];
+      return m ? m.nombre : c;
+    });
+    const modsTxt = esAdmin
+      ? '<span class="status">Todos (administrador)</span>'
+      : (nombres.length ? nombres.map(n => '<span class="pill admin">' + esc(n) + '</span>').join(' ') : '<span style="color:#a00">Sin módulos</span>');
+    h += '<tr><td><b>' + esc(u.usuario) + '</b>' + (yo ? ' (tú)' : '') + '</td><td>' + esc(u.nombre) + '</td>'
+      + '<td><span class="pill ' + (esAdmin ? 'admin' : 'vendedor') + '">'
+      + (esAdmin ? 'Administrador' : 'Vendedor') + '</span></td>'
+      + '<td>' + modsTxt + '</td>'
+      + '<td>' + (u.activo ? 'Activo' : '<span style="color:#a00">Desactivado</span>') + '</td>'
+      + '<td class="no-print"><button onclick="editarUsuario(\'' + esc(u.usuario) + '\')">Editar</button> '
+      + (u.activo
+          ? (yo ? '' : ' <button class="danger" onclick="desactivarUsuario(\'' + esc(u.usuario) + '\')">Desactivar</button>')
+          : ' <button class="ok" onclick="activarUsuario(\'' + esc(u.usuario) + '\')">Activar</button>')
+      + '</td></tr>';
+  });
+  h += '</tbody></table>';
+  $('userTable').innerHTML = h;
+}
+function editarUsuario(usuario){
+  const u = (db.usuarios || []).filter(x => x.usuario === usuario)[0];
+  if(!u) return;
+  editandoUsuario = usuario;
+  $('formUserTitle').textContent = 'Editando a ' + u.nombre;
+  $('uUser').value = u.usuario;
+  $('uUser').disabled = true;
+  $('uName').value = u.nombre;
+  $('uRole').value = u.rol;
+  $('uPass').value = '';
+  $('uPass').placeholder = 'Déjala vacía para no cambiarla';
+  $('uPassOblig').textContent = '(opcional: solo si quieres ponerla nueva)';
+  $('uCancel').style.display = '';
+  $('uError').textContent = '';
+  // Refleja los módulos que ya tiene. Si es admin, se marcan todos y se bloquean.
+  uModsMarcar(u.modulos || []);
+  if(u.rol === 'admin') uModsTodos();
+  uRolCambio();
+  window.scrollTo(0, document.getElementById('usuarios').offsetTop);
+}
+function cancelarUsuario(){
+  editandoUsuario = null;
+  $('formUserTitle').textContent = 'Agregar usuario';
+  $('uUser').value = ''; $('uUser').disabled = false;
+  $('uName').value = ''; $('uRole').value = 'vendedor';
+  $('uPass').value = ''; $('uPass').placeholder = 'La clave con la que entrará';
+  $('uPassOblig').textContent = '(mínimo 6 caracteres)';
+  $('uCancel').style.display = 'none';
+  $('uError').textContent = '';
+  // Un usuario nuevo arranca con acceso a todos los módulos (como antes).
+  uModsTodos();
+  uRolCambio();
+}
+async function guardarUsuario(){
+  $('uError').textContent = '';
+  const datos = { usuario: $('uUser').value.trim().toLowerCase(), nombre: $('uName').value.trim(),
+                  password: $('uPass').value, rol: $('uRole').value, modulos: uModsLeer() };
+  if(!datos.usuario || !datos.nombre){
+    $('uError').textContent = 'Escribe el usuario y el nombre completo.';
+    return;
+  }
+  if(datos.rol !== 'admin' && !datos.modulos.length){
+    $('uError').textContent = 'Marca al menos un módulo para que el usuario pueda entrar a algo.';
+    return;
+  }
+  requireAdmin(editandoUsuario
+    ? 'Cambiar los datos de "' + editandoUsuario + '" es una función de administrador.'
+    : 'Crear el usuario "' + datos.usuario + '" es una función de administrador.',
+    async () => {
+      mostrarCarga(true, editandoUsuario ? 'Guardando cambios del usuario…' : 'Creando usuario…');
+      try{
+        const r = await apiCall(editandoUsuario ? 'editarUsuario' : 'crearUsuario', { usuario: datos });
+        db.usuarios = r.usuarios || db.usuarios;
+        userRender();
+        cancelarUsuario();
+      }catch(e){ $('uError').textContent = e.message; }
+      finally{ mostrarCarga(false); }
+    });
+}
+async function desactivarUsuario(usuario){
+  if(!confirm('¿Desactivar a "' + usuario + '"?\n\n'
+    + 'La persona ya no podrá entrar. Su nombre se conserva para que la bitácora siga teniendo sentido, y puedes volver a habilitarlo cuando quieras.')) return;
+  requireAdmin('Desactivar al usuario "' + usuario + '" es una función de administrador.', async () => {
+    mostrarCarga(true, 'Desactivando usuario…');
+    try{
+      const r = await apiCall('deleteUsuario', { usuario });
+      db.usuarios = r.usuarios || db.usuarios;
+      userRender();
+    }catch(e){ alert(e.message); }
+    finally{ mostrarCarga(false); }
+  });
+}
+/* Volver a habilitar a alguien que se había desactivado. Sus documentos
+   anteriores siguen intactos: solo recupera el acceso. */
+async function activarUsuario(usuario){
+  if(!confirm('¿Volver a dar acceso a "' + usuario + '"? Podrá entrar con su usuario y contraseña.')) return;
+  requireAdmin('Activar al usuario "' + usuario + '" es una función de administrador.', async () => {
+    mostrarCarga(true, 'Activando usuario…');
+    try{
+      const r = await apiCall('editarUsuario', { usuario: { usuario: usuario, activo: true } });
+      db.usuarios = r.usuarios || db.usuarios;
+      userRender();
+    }catch(e){ alert(e.message); }
+    finally{ mostrarCarga(false); }
+  });
+}
+
+/* ==================== BITÁCORA: quién hizo qué ==================== */
+function setBitacoraFiltro(f){
+  filtroBitacora = f;
+  document.querySelectorAll('.bfilt').forEach(b => b.classList.toggle('active', b.dataset.b === f));
+  bitacoraRender();
+}
+async function cargarBitacora(){
+  if(!connected) return;
+  mostrarCarga(true, 'Cargando bitácora…');
+  try{ bitacora = (await apiCall('getBitacora', { limite: 300 })).bitacora || []; bitacoraRender(); }
+  catch(e){ $('bitacoraBody').innerHTML = '<p style="color:#a00">' + esc(e.message) + '</p>'; }
+  finally{ mostrarCarga(false); }
+}
+function bitacoraRender(){
+  if(!bitacora.length){
+    $('bitacoraBody').innerHTML = '<p class="status">Todavía no hay movimientos registrados. En cuanto alguien registre una factura, un pedido, una entrada o un abono, aparecerá aquí.</p>';
+    return;
+  }
+  const q = String($('bitacoraSearch').value || '').toLowerCase();
+  const filas = bitacora.filter(x => (filtroBitacora === 'todos' || x.documento === filtroBitacora)
+    && (!q || [x.quien, x.documento, x.numero, x.detalle].join(' ').toLowerCase().indexOf(q) >= 0))
+    .slice().reverse();
+  if(!filas.length){ $('bitacoraBody').innerHTML = '<p class="status">Ningún movimiento coincide con la búsqueda.</p>'; return; }
+  let h = '<p class="status">Mostrando ' + filas.length + ' de ' + bitacora.length + ' movimientos.</p>'
+    + '<table class="list"><thead><tr><th>Fecha</th><th>Hora</th><th>Quién</th><th>Documento</th><th>N.º</th><th>Qué hizo</th></tr></thead><tbody>';
+  filas.forEach(x => {
+    h += '<tr><td>' + esc(fmtFecha(x.fecha)) + '</td><td>' + esc(x.hora || '') + '</td>'
+      + '<td><b>' + esc(x.quien) + '</b><br><span class="status">' + esc(x.rol || '') + '</span></td>'
+      + '<td>' + esc(x.documento) + '</td><td>' + esc(x.numero) + '</td><td>' + esc(x.detalle) + '</td></tr>';
+  });
+  $('bitacoraBody').innerHTML = h + '</tbody></table>';
+}
+
+/* ==================== RESPALDOS ==================== */
+function backup(){
+  const b = new Blob([JSON.stringify({ clients: db.clients || [], products: db.products || [] }, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = 'JTechCars_Respaldo_' + hoy() + '.json';
+  a.click();
+}
+function restoreFile(){ if(!connected) return alert('Ingresa la contraseña primero.'); $('restore').click(); }
+function restore(e){
+  const r = new FileReader();
+  r.onload = async () => {
+    try{
+      const x = JSON.parse(r.result);
+      if(!x.clients || !x.products) throw 0;
+      mostrarCarga(true, 'Restaurando clientes y productos en Google Sheets…');
+      for(const c of x.clients) await apiCall('saveClient', { client: c });
+      for(const p of x.products) await apiCall('saveProduct', { product: p });
+      await cargar();
+      alert('Respaldo restaurado en Google Sheets.');
+    }catch(err){ alert('Respaldo no válido o error al restaurar: ' + (err.message || '')); }
+    finally{ mostrarCarga(false); $('restore').value = ''; }
+  };
+  r.readAsText(e.target.files[0]);
+}
+
+/* ==================== TABS ==================== */
+function tab(id){
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  $(id).classList.add('active');
+  if(id === 'usuarios'){ uModsRender(); cancelarUsuario(); userRender(); }
+  if(id === 'bitacora') cargarBitacora();
+}
+
+/* ==================== DATOS VIEJOS ==================== */
+function marcarDatosFrescos(horaServidor){
+  datosCargadosEn = Date.now();
+  const ship = $('staleWho');
+  if(ship) ship.textContent = horaServidor ? 'Últimos cambios en el servidor: ' + horaServidor + '.' : '';
+  arrancarRelojViejos();
+}
+function arrancarRelojViejos(){
+  pararRelojViejos();
+  relojViejos = setInterval(revisarDatosViejos, 30000);
+  document.addEventListener('visibilitychange', function(){ if(!document.hidden) revisarDatosViejos(); });
+}
+function pararRelojViejos(){ if(relojViejos){ clearInterval(relojViejos); relojViejos = null; } }
+function revisarDatosViejos(){
+  if(!connected || !datosCargadosEn) return;
+  const m = (Date.now() - datosCargadosEn) / 60000;
+  if(m < MINUTOS_VIEJOS) return;
+  $('staleWhen').textContent = 'Los datos que ves se descargaron hace ' + Math.floor(m) + ' min.';
+  $('staleBar').classList.add('show');
+}
+function cerrarAvisoViejo(){ $('staleBar').classList.remove('show'); }
+
+/* ==================== UTILIDADES ==================== */
+function closeModal(id){ $(id).classList.remove('show'); }
+function mostrarCarga(on, texto){
+  const o = $('loadingOverlay');
+  o.classList.toggle('show', on);
+  if(on && texto) $('loadingMsg').textContent = texto;
+}
+function avisar(texto, esError){
+  const box = $('avisoVivo');
+  const div = document.createElement('div');
+  div.style.cssText = 'padding:10px 14px;border-radius:8px;font-size:13px;max-width:340px;'
+    + (esError ? 'background:#fbe9e9;color:#a12b2b;border:1px solid #e0a0a0' : 'background:#e6f4ec;color:#1c7c4d;border:1px solid #a0d4b0');
+  div.textContent = texto;
+  box.appendChild(div);
+  setTimeout(() => div.remove(), esError ? 6000 : 3500);
+}
+function esc(s){ return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtFecha(iso){ if(!iso) return ''; const a = String(iso).split('-'); return a.length === 3 ? a[1]+'/'+a[2]+'/'+a[0] : iso; }
+function hoy(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+</script>
+</body></html>
